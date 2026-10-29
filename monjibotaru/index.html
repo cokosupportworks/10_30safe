@@ -1,0 +1,1338 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>もんじぼたる Ver3.2.1</title>
+
+    <!-- アプリアイコンの設定 -->
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <link rel="icon" href="apple-touch-icon.png">
+
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Klee+One:wght@400;600&family=Zen+Maru+Gothic:wght@500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'Zen Maru Gothic', sans-serif; user-select: none; -webkit-user-select: none; overscroll-behavior: none; touch-action: manipulation; transition: background-color 0.3s; }
+        .font-klee { font-family: 'Klee One', cursive; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* アラート時の背景色 */
+        body.alert-bg { background: #FEF08A !important; }
+        
+        /* トグルスイッチのスタイル */
+        .toggle-checkbox:checked { right: 0; border-color: #3B82F6; }
+        .toggle-checkbox:checked + .toggle-label { background-color: #3B82F6; }
+        .toggle-hotaru:checked + .toggle-label { background-color: #FBBF24; border-color: #FBBF24;}
+        
+        /* 音設定用トグルスイッチ */
+        .sound-toggle:checked ~ .toggle-bg { background-color: #3B82F6; }
+        .sound-toggle:checked ~ .toggle-dot { transform: translateX(100%); }
+        
+        #loadingOverlay { position: fixed; inset: 0; background-color: #f0f9ff; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.5s ease-out; }
+        .loading-spinner { width: 50px; height: 50px; border: 5px solid #e0f2fe; border-top: 5px solid #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        /* 道路標識風スタイル */
+        .speed-sign {
+            width: 50px; height: 50px; border-radius: 50%; border: 6px solid #EF4444; background-color: white;
+            display: flex; align-items: center; justify-content: center; font-weight: bold; color: #1E3A8A; font-size: 1.25rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 20; transition: all 0.3s;
+        }
+        .alert-flash { animation: flashRed 0.5s ease-out; }
+        @keyframes flashRed { 0% { background-color: #FEE2E2; border-color: #DC2626; transform: scale(1.1); } 100% { background-color: white; border-color: #EF4444; transform: scale(1); } }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 text-gray-800 flex flex-col fixed inset-0">
+
+    <!-- フォント事前読み込み用の隠し要素 -->
+    <div style="font-family: 'Klee One'; position: absolute; opacity: 0; pointer-events: none; z-index: -1;">あ</div>
+    <div style="font-family: 'Zen Maru Gothic'; position: absolute; opacity: 0; pointer-events: none; z-index: -1;">あ</div>
+
+    <!-- クラクション点滅用オーバーレイ -->
+    <div id="hornFlashOverlay" class="fixed inset-0 bg-yellow-400 pointer-events-none z-[60] opacity-0 transition-opacity"></div>
+
+    <!-- アラート用オーバーレイ -->
+    <div id="noticeOverlay" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/60 backdrop-blur-sm pointer-events-auto select-none" data-can-close="false">
+        <img src="mnotice.png" alt="注意" class="max-w-[95vw] max-h-[95vh] object-contain drop-shadow-2xl rounded-2xl pointer-events-none" onerror="this.outerHTML='<div class=\'bg-white p-8 rounded-3xl border-8 border-red-500 flex flex-col items-center drop-shadow-2xl pointer-events-none transform transition-transform hover:scale-105\'><div class=\'text-[100px] leading-none animate-bounce\'>⚠️</div><div class=\'text-3xl font-bold text-red-600 mt-4 font-klee\'>はやいよ！きをつけて！</div></div>'" />
+    </div>
+
+    <div id="loadingOverlay">
+        <div class="loading-spinner mb-4"></div>
+        <div id="loadingMessage" role="status" class="text-xl font-bold text-gray-600 tracking-widest animate-pulse font-klee">じゅんびちゅう...</div>
+    </div>
+
+    <!-- ★起動時ポップアップ (おとの確認) -->
+    <div id="soundInitPopup" class="fixed inset-0 z-[110] hidden items-center justify-center bg-black/50 backdrop-blur-sm p-4 opacity-0 transition-opacity duration-300">
+        <div class="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl flex flex-col items-center text-center transform scale-95 transition-transform duration-300 border-4 border-indigo-200" id="soundInitPopupInner">
+            <div class="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mb-4">
+                <span class="text-3xl">🎵</span>
+            </div>
+            <h2 class="text-2xl font-bold text-gray-800 mb-2">おとの せってい</h2>
+            <p class="text-gray-600 font-bold mb-6">にがてな おとを<br>けすことができます。</p>
+            
+            <div class="w-full flex flex-col gap-3">
+                <button id="btnStartApp" class="w-full bg-gradient-to-r from-indigo-500 to-blue-500 text-white font-bold text-xl py-3 rounded-2xl shadow-md hover:shadow-lg transform active:scale-95 transition-all">はじめる</button>
+                <button id="btnOpenSoundSettingsFromInit" class="w-full bg-gray-100 text-gray-700 font-bold py-3 rounded-2xl border-2 border-gray-200 hover:bg-gray-200 transform active:scale-95 transition-all flex items-center justify-center gap-2">
+                    <span>🔊</span> おとの せってい
+                </button>
+            </div>
+            
+            <label class="mt-5 flex items-center gap-2 text-sm font-bold text-gray-500 cursor-pointer">
+                <input type="checkbox" id="dontShowPopupCb" class="w-5 h-5 rounded text-indigo-500 focus:ring-indigo-500 border-gray-300">
+                つぎから ひょうじしない
+            </label>
+        </div>
+    </div>
+
+    <!-- ★個別効果音設定ウィンドウ -->
+    <div id="soundSettingsModal" class="fixed inset-0 z-[120] hidden items-center justify-center bg-gray-900/60 backdrop-blur-sm p-4 opacity-0 transition-opacity duration-300">
+        <div class="bg-white rounded-3xl p-5 w-full max-w-md max-h-[90vh] shadow-2xl flex flex-col border-4 border-indigo-200 transform scale-95 transition-transform duration-300" id="soundSettingsModalInner">
+            <div class="flex justify-between items-center mb-4 border-b border-gray-200 pb-3 shrink-0">
+                <h2 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                    <span class="text-2xl">🔊</span> おとの せってい
+                </h2>
+                <button id="closeSoundSettingsBtn" class="bg-gray-100 hover:bg-gray-200 text-gray-600 px-4 py-1.5 rounded-full text-sm font-bold transition-colors">けってい</button>
+            </div>
+            
+            <div class="flex gap-2 mb-4 shrink-0">
+                <button id="btnAllSoundOn" class="flex-1 bg-indigo-50 text-indigo-600 border border-indigo-200 py-2 rounded-xl font-bold text-sm hover:bg-indigo-100 transition-colors">ぜんぶ ON</button>
+                <button id="btnAllSoundOff" class="flex-1 bg-gray-50 text-gray-600 border border-gray-200 py-2 rounded-xl font-bold text-sm hover:bg-gray-100 transition-colors">ぜんぶ OFF</button>
+            </div>
+
+            <div class="overflow-y-auto no-scrollbar flex-1 -mx-2 px-2">
+                <ul id="soundOptionsList" class="flex flex-col gap-3 pb-4">
+                    <!-- JSで動的にリストを生成します -->
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- ★おすすめワード設定ウィンドウ -->
+    <div id="presetSettingsModal" class="fixed inset-0 z-[130] hidden items-center justify-center bg-gray-900/60 backdrop-blur-sm p-4 opacity-0 transition-opacity duration-300">
+        <div class="bg-white rounded-3xl p-5 w-full max-w-md max-h-[95vh] shadow-2xl flex flex-col border-4 border-emerald-200 transform scale-95 transition-transform duration-300" id="presetSettingsModalInner">
+            <div class="flex justify-between items-center mb-3 border-b border-gray-200 pb-3 shrink-0">
+                <h2 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                    <span class="text-2xl">📝</span> おすすめワード
+                </h2>
+                <button id="closePresetSettingsBtn" class="bg-gray-100 hover:bg-gray-200 text-gray-600 px-4 py-1.5 rounded-full text-sm font-bold transition-colors">とじる</button>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto no-scrollbar flex flex-col gap-4">
+                <!-- 登録済みリスト -->
+                <div class="bg-emerald-50 p-3 rounded-2xl border border-emerald-100">
+                    <p class="text-xs font-bold text-emerald-700 mb-2">いま ある ワード</p>
+                    <div id="presetEditorList" class="flex flex-wrap gap-2"></div>
+                </div>
+
+                <!-- 新規追加エリア -->
+                <div class="bg-indigo-50 p-3 rounded-2xl border border-indigo-100 flex flex-col">
+                    <p class="text-xs font-bold text-indigo-700 mb-2">あたらしく ついかする</p>
+                    <div class="flex gap-2 items-center justify-center mb-3">
+                        <div id="presetEditorInput1" class="w-14 h-14 bg-white border-2 border-indigo-300 rounded-xl flex items-center justify-center text-2xl font-bold text-indigo-700 shadow-inner"></div>
+                        <div id="presetEditorInput2" class="w-14 h-14 bg-white border-2 border-gray-300 rounded-xl flex items-center justify-center text-2xl font-bold text-gray-400 shadow-inner"></div>
+                        <button id="btnClearPresetInput" class="ml-2 w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-300 transition-colors font-bold text-lg">✖</button>
+                    </div>
+                    
+                    <!-- 文字盤タブ -->
+                    <div class="flex gap-1.5 bg-gray-100 p-1.5 rounded-xl mb-2">
+                        <button id="tabPresetHiragana" class="flex-1 py-1.5 rounded-lg font-bold text-xs transition-all bg-white text-indigo-600 shadow-sm">ひらがな</button>
+                        <button id="tabPresetKatakana" class="flex-1 py-1.5 rounded-lg font-bold text-xs transition-all text-gray-500 hover:bg-white/60">カタカナ</button>
+                        <button id="tabPresetNumber" class="flex-1 py-1.5 rounded-lg font-bold text-xs transition-all text-gray-500 hover:bg-white/60">すうじ</button>
+                    </div>
+                    <div id="presetDakuonToggleArea" class="flex justify-end mb-2">
+                        <button id="presetToggleDakuonBtn" class="px-3 py-1 rounded-lg font-bold text-xs flex items-center justify-center gap-1 transition-all border bg-gray-50 text-gray-600 border-gray-200"><span id="presetDakuonBtnText">ふつうのもじ</span></button>
+                    </div>
+                    
+                    <!-- キーボード -->
+                    <div id="presetEditorKeyboard" class="grid grid-cols-5 gap-1.5 h-36 overflow-y-auto pr-1 mb-3"></div>
+                    
+                    <button id="btnAddPresetWord" class="w-full bg-emerald-500 text-white font-bold py-2.5 rounded-xl opacity-50 cursor-not-allowed transition-all" disabled>＋ ついかする</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ヘッダー -->
+    <header class="bg-white/90 backdrop-blur-md p-3 shadow-sm flex flex-wrap items-center justify-center gap-4 z-30 flex-shrink-0 border-b border-indigo-100">
+        <div class="flex items-center gap-2">
+            <div class="bg-blue-500 p-1.5 rounded-full shadow-inner animate-pulse">
+                <svg class="text-white w-5 h-5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+            </div>
+            <h1 class="text-xl font-bold tracking-wider">もんじ<span class="text-blue-500">ぼたる</span> <span class="text-xs text-gray-500 font-normal ml-1">Ver3.2.1</span></h1>
+        </div>
+        <div class="flex items-center gap-2">
+            <button id="openSelectorBtn" class="px-4 py-1.5 rounded-full font-bold text-sm transition-all transform active:scale-95 shadow-md flex items-center justify-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white w-auto">もじをえらぶ</button>
+            <button id="openSettingsBtn" class="p-2 rounded-full hover:bg-gray-200 transition-colors bg-gray-100 text-gray-600 shadow-sm border border-gray-200">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- メインコンテンツ -->
+    <main class="flex-1 p-4 flex flex-col items-center justify-start gap-4 w-full mx-auto relative overflow-y-auto no-scrollbar pb-20">
+        
+        <!-- 設定パネル -->
+        <div id="settingsPanel" class="hidden absolute top-0 z-40 w-full max-w-md bg-white/95 backdrop-blur-md p-5 rounded-3xl shadow-2xl border-4 border-indigo-200 animate-[fadeIn_0.3s_ease-out] flex flex-col max-h-[90vh] overflow-y-auto no-scrollbar">
+            <div class="flex justify-between items-center mb-4 border-b border-gray-200 pb-3 sticky top-0 bg-white/90 z-10">
+                <h2 class="font-bold text-xl text-gray-800 flex items-center gap-2">
+                    <svg class="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    せってい
+                </h2>
+                <button id="closeSettingsBtn" class="bg-gray-100 hover:bg-gray-200 text-gray-600 px-4 py-1.5 rounded-full text-sm font-bold transition-colors">とじる</button>
+            </div>
+
+            <!-- ほたるモード設定 -->
+            <div class="mb-5 bg-yellow-50 p-4 rounded-2xl border border-yellow-100">
+               <div class="flex items-center justify-between mb-3">
+                 <span class="font-bold text-yellow-800 flex items-center gap-2">
+                   <div id="hotaruIndicator" class="w-3 h-3 rounded-full bg-yellow-400 animate-ping"></div>
+                   ほたる モード
+                 </span>
+                 <button id="hotaruSwitchBtn" class="w-14 h-8 rounded-full p-1 transition-colors duration-300 flex items-center bg-yellow-400 justify-end"><div class="w-6 h-6 bg-white rounded-full shadow-md"></div></button>
+               </div>
+               
+               <div id="hotaruControls" class="flex flex-col gap-3 mt-2 border-t border-yellow-200 pt-3">
+                   <div class="flex flex-col w-full">
+                        <div class="flex justify-between mb-1"><span class="font-bold text-gray-700 text-xs">ひかる じかん</span><span id="visibleDurationDisplay" class="font-bold text-yellow-600 text-xs">2びょう</span></div>
+                        <input type="range" id="visibleDurationSlider" min="0" max="10" step="1" value="2" class="w-full h-3 bg-white rounded-lg appearance-none cursor-pointer accent-yellow-500 border border-yellow-200">
+                   </div>
+                   <div class="flex items-center justify-between bg-white p-2 rounded-lg border border-yellow-200 shadow-sm">
+                       <span class="font-bold text-gray-700 text-xs">はじめだけ ひかる</span>
+                       <button id="oneTimeFlashBtn" class="w-12 h-6 rounded-full p-1 transition-colors duration-300 flex items-center bg-gray-300 justify-start">
+                           <div class="w-4 h-4 bg-white rounded-full shadow-md"></div>
+                       </button>
+                   </div>
+                   <div class="flex flex-col w-full relative">
+                        <div class="flex justify-between mb-1"><span class="font-bold text-gray-700 text-xs">きえる じかん</span><span id="hiddenDurationDisplay" class="font-bold text-gray-500 text-xs">2びょう</span></div>
+                        <input type="range" id="hiddenDurationSlider" min="0" max="10" step="1" value="2" class="w-full h-3 bg-white rounded-lg appearance-none cursor-pointer accent-gray-400 border border-gray-200 transition-opacity duration-300">
+                   </div>
+               </div>
+            </div>
+
+            <!-- 文字サイズ -->
+            <div class="mb-5 bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                <div class="flex justify-between mb-2 items-center">
+                    <span class="font-bold text-gray-700">もじの おおきさ</span>
+                    <span id="charSizeDisplay" class="font-bold text-indigo-600 bg-indigo-100 px-3 py-1 rounded-full">10</span>
+                </div>
+                <input type="range" id="charSizeSlider" min="1" max="10" value="10" class="w-full h-4 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-500">
+            </div>
+
+            <!-- スピード制限機能 -->
+            <div class="mb-5 bg-blue-50 p-4 rounded-2xl border border-blue-100">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="font-bold text-blue-800 flex items-center gap-2">
+                        <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="3"/><text x="12" y="16" text-anchor="middle" font-weight="bold" font-size="10" fill="#1E3A8A" stroke="none">速度</text></svg>
+                        スピードせいげん
+                    </span>
+                    <button id="speedLimitSwitchBtn" class="w-14 h-8 rounded-full p-1 transition-colors duration-300 flex items-center bg-gray-300 justify-start"><div class="w-6 h-6 bg-white rounded-full shadow-md"></div></button>
+                </div>
+                
+                <div id="speedLimitControls" class="hidden flex-col gap-3 mt-2 border-t border-blue-200 pt-3">
+                    <div class="flex justify-center gap-2 mb-2">
+                        <button id="tabDemoSpeed" class="flex-1 py-1.5 rounded-lg font-bold text-xs transition-all bg-white text-blue-600 shadow-sm border border-blue-200">じどう デモ</button>
+                        <button id="tabManualSpeed" class="flex-1 py-1.5 rounded-lg font-bold text-xs transition-all text-gray-500 hover:bg-white/50 border border-transparent">じぶんで はかる</button>
+                    </div>
+                    <div class="flex justify-center mb-2">
+                        <div class="relative bg-white rounded-xl shadow-inner border-2 border-gray-200 overflow-hidden" style="width: 120px; height: 120px;">
+                            <canvas id="speedDemoCanvas" width="120" height="120" class="absolute top-0 left-0"></canvas>
+                            <div id="manualOverlay" class="hidden absolute inset-0 bg-blue-500/10 flex items-center justify-center pointer-events-none">
+                                <span class="text-xs font-bold text-blue-600 bg-white/80 px-2 py-1 rounded-full">なぞってね！</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex flex-col w-full">
+                        <div class="flex justify-between mb-1 items-center">
+                            <span class="font-bold text-gray-700 text-xs">せいげん そくど</span>
+                            <div class="speed-sign !w-8 !h-8 !border-[3px] !text-sm"><span id="speedLimitDisplay">50</span></div>
+                        </div>
+                        <input type="range" id="speedLimitSlider" min="10" max="80" step="5" value="50" class="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-red-500">
+                        <div class="flex justify-between text-[10px] text-gray-400 mt-1 px-1"><span>ゆっくり</span><span>はやい</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ★おとのせってい / おすすめワード（メインメニュー内） -->
+            <div class="flex flex-col gap-2 mb-5">
+                <button id="btnOpenSoundSettingsFromMenu" class="w-full bg-white text-gray-700 border border-gray-200 py-3 rounded-2xl font-bold shadow-sm hover:bg-gray-50 transition-colors flex items-center justify-between px-4">
+                    <span class="flex items-center gap-2"><span class="text-xl">🔊</span> おとの せってい</span>
+                    <span class="text-gray-400 text-xs">ひらく ▶</span>
+                </button>
+                <button id="btnOpenPresetSettingsFromMenu" class="w-full bg-white text-emerald-700 border border-emerald-200 py-3 rounded-2xl font-bold shadow-sm hover:bg-emerald-50 transition-colors flex items-center justify-between px-4">
+                    <span class="flex items-center gap-2"><span class="text-xl">📝</span> おすすめワード</span>
+                    <span class="text-emerald-400 text-xs">ひらく ▶</span>
+                </button>
+            </div>
+            
+            <!-- データ管理 -->
+            <div class="bg-gray-100 p-4 rounded-2xl border border-gray-200 mb-[50px]">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="font-bold text-gray-600 text-sm">システム じょうたい</span>
+                    <div id="systemStatusDisplay" class="text-[10px] font-mono text-white bg-green-500 px-2 py-1 rounded-full shadow-inner">OK</div>
+                </div>
+                <div class="flex justify-between items-center mb-4">
+                    <span class="font-bold text-gray-700 text-sm">いまの きろく</span>
+                    <span id="dataCountDisplay" class="font-bold text-indigo-600 text-lg bg-white px-3 py-1 rounded-lg shadow-sm">0もじ</span>
+                </div>
+                <div class="border-t border-gray-200 pt-2">
+                    <button onclick="resetAllData()" class="w-full bg-white border border-red-300 text-red-500 text-xs font-bold py-2 rounded-lg hover:bg-red-50 transition-colors">きろくを ぜんぶ けす</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- プレイエリア Layout -->
+        <div class="flex flex-col gap-6 items-center justify-center w-full mt-2">
+            <!-- キャンバスラッパー: 2もじモード時は横幅が広がる -->
+            <div id="canvasWrapper" class="relative shadow-2xl rounded-3xl overflow-hidden bg-white border-[10px] border-indigo-100 shrink-0 mx-auto transition-all duration-300 select-none touch-none" style="width: min(90vw, 420px); height: min(90vw, 420px); aspect-ratio: 1 / 1;">
+                <!-- 道路標識 -->
+                <div id="mainSpeedSign" class="speed-sign absolute top-3 left-3 hidden">
+                    <span id="mainSpeedSignValue">50</span>
+                </div>
+                
+                <canvas id="gridCanvas" width="400" height="400" class="absolute top-0 left-0 w-full h-full pointer-events-none"></canvas>
+                <canvas id="guideCanvas" width="400" height="400" class="absolute top-0 left-0 w-full h-full pointer-events-none transition-opacity duration-1000 ease-in-out opacity-60"></canvas>
+                <canvas id="drawingCanvas" width="400" height="400" class="absolute top-0 left-0 w-full h-full cursor-crosshair touch-none"></canvas>
+                <canvas id="feedbackCanvas" width="400" height="400" class="absolute top-0 left-0 w-full h-full pointer-events-none z-10 opacity-80"></canvas>
+                
+                <!-- ほたるアイコン -->
+                <div id="fireflyIcon" class="absolute top-3 right-3 transition-opacity duration-1000 bg-black/20 rounded-full p-1 backdrop-blur-sm">
+                    <svg viewBox="0 0 100 100" class="w-8 h-8 drop-shadow-lg" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="75" r="25" fill="#FEF08A" class="animate-pulse" opacity="0.8" /><path d="M50 35 Q85 15 90 45 Q80 75 50 60" fill="#6EE7B7" opacity="0.9" stroke="#34D399" stroke-width="2"/><path d="M50 35 Q15 15 10 45 Q20 75 50 60" fill="#6EE7B7" opacity="0.9" stroke="#34D399" stroke-width="2"/><ellipse cx="50" cy="50" rx="14" ry="24" fill="#4B5563" /><path d="M38 60 Q50 85 62 60" fill="#FACC15" /><circle cx="50" cy="28" r="14" fill="#1F2937" /><circle cx="44" cy="25" r="3" fill="white" /><circle cx="44" cy="25" r="3" fill="white" /><circle cx="56" cy="25" r="3" fill="white" /><path d="M47 32 Q50 34 53 32" stroke="white" stroke-width="2" stroke-linecap="round" /><path d="M40 18 Q35 5 45 10" stroke="#1F2937" stroke-width="2.5" stroke-linecap="round"/><path d="M60 18 Q65 5 55 10" stroke="#1F2937" stroke-width="2.5" stroke-linecap="round"/></svg>
+                </div>
+            </div>
+
+            <!-- ボタン＆フィードバックエリア -->
+            <div class="flex flex-col gap-4 w-full px-2" style="max-width: 600px;">
+                <div class="flex flex-row gap-3 w-full justify-center">
+                    <button id="eraseBtn" class="bg-white hover:bg-gray-50 text-gray-700 border-2 border-gray-300 h-16 flex-1 px-4 rounded-2xl font-bold text-xl transition-all transform active:scale-95 shadow-md flex items-center justify-center gap-2 max-w-[200px]">けす</button>
+                    <button id="submitBtn" class="bg-gradient-to-br from-pink-400 to-rose-500 text-white hover:shadow-lg hover:scale-[1.02] h-16 flex-[1.5] px-4 rounded-2xl font-bold text-2xl transition-all transform active:scale-95 shadow-lg flex items-center justify-center gap-2 border border-pink-300 max-w-[300px]">かいたよ！</button>
+                    <button id="retryBtn" class="hidden bg-gradient-to-br from-green-400 to-emerald-500 text-white animate-bounce h-16 flex-[1.5] px-4 rounded-2xl font-bold text-2xl transition-all transform active:scale-95 shadow-md flex items-center justify-center gap-2 border border-green-300 max-w-[300px]">つぎへ！</button>
+                </div>
+                
+                <div id="feedbackArea" class="hidden w-full animate-[slideIn_0.3s_ease-out]">
+                    <div class="bg-white/95 p-5 rounded-3xl shadow-xl border-4 border-yellow-300 text-center relative mt-2 max-w-[500px] mx-auto">
+                        <h3 id="feedbackMessage" class="text-2xl font-bold text-gray-800 mb-2"></h3>
+                        <div id="feedbackStars" class="flex justify-center gap-2 mb-3"></div>
+                        <p class="text-gray-500 text-sm font-bold bg-gray-100 inline-block px-3 py-1 rounded-full">あかい ところが ポイント！</p>
+                        <div id="saveStatus" class="mt-3 text-sm font-bold h-5"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- もじをえらぶ モーダル -->
+    <div id="selectorModal" class="hidden fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-5 w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col no-scrollbar border-4 border-indigo-100">
+            <div class="flex flex-col gap-3 mb-4 sticky top-0 bg-white pb-3 border-b border-gray-100 z-10 shrink-0">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-2xl font-bold text-gray-800">もじをえらぶ</h2>
+                    <button id="closeSelectorBtn" class="bg-gray-100 hover:bg-gray-200 text-gray-600 px-4 py-2 rounded-full text-sm font-bold flex items-center gap-1 shrink-0 transition-colors">とじる</button>
+                </div>
+                <!-- ★大分類（モード）タブ -->
+                <div class="flex gap-1.5 bg-indigo-50 p-1.5 rounded-2xl overflow-x-auto no-scrollbar">
+                    <button id="tabModeSingle" class="flex-1 min-w-[70px] py-2.5 rounded-xl font-bold text-sm transition-all bg-white text-indigo-600 shadow-sm shrink-0">１もじ</button>
+                    <button id="tabModeDouble" class="flex-1 min-w-[120px] py-2.5 rounded-xl font-bold text-sm transition-all text-gray-500 hover:bg-white/60 shrink-0 border border-transparent">２もじをつくる</button>
+                    <button id="tabModePreset" class="flex-1 min-w-[100px] py-2.5 rounded-xl font-bold text-sm transition-all text-gray-500 hover:bg-white/60 shrink-0 border border-transparent">おすすめワード</button>
+                </div>
+            </div>
+            
+            <!-- ★2文字入力枠エリア (2もじモード時のみ表示) -->
+            <div id="doubleInputArea" class="hidden flex-col bg-indigo-50 p-4 rounded-2xl border border-indigo-100 mb-4 shrink-0">
+                <div class="flex gap-2 items-center justify-center mb-3">
+                    <div id="doubleInput1" class="w-16 h-16 bg-white border-2 border-indigo-300 rounded-xl flex items-center justify-center text-3xl font-bold text-indigo-700 shadow-inner"></div>
+                    <div id="doubleInput2" class="w-16 h-16 bg-white border-2 border-gray-300 rounded-xl flex items-center justify-center text-3xl font-bold text-gray-400 shadow-inner"></div>
+                    <button id="btnClearDoubleInput" class="ml-2 w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-300 transition-colors font-bold text-lg">✖</button>
+                </div>
+                <button id="btnStartCustomDouble" class="w-full bg-indigo-500 text-white font-bold py-2.5 rounded-xl opacity-50 cursor-not-allowed transition-all" disabled>これで スタート！</button>
+            </div>
+
+            <!-- ★文字盤エリア (1もじ / 2もじモードで共通表示) -->
+            <div id="keyboardArea" class="flex flex-col flex-1">
+                <!-- 文字種（サブ）タブ -->
+                <div class="flex gap-1.5 bg-gray-100 p-1.5 rounded-2xl mb-3 shrink-0">
+                    <button id="tabTypeHiragana" class="flex-1 min-w-[70px] py-2.5 rounded-xl font-bold text-sm transition-all bg-white text-indigo-600 shadow-sm shrink-0">ひらがな</button>
+                    <button id="tabTypeKatakana" class="flex-1 min-w-[70px] py-2.5 rounded-xl font-bold text-sm transition-all text-gray-500 hover:bg-white/60 shrink-0">カタカナ</button>
+                    <button id="tabTypeNumber" class="flex-1 min-w-[60px] py-2.5 rounded-xl font-bold text-sm transition-all text-gray-500 hover:bg-white/60 shrink-0">すうじ</button>
+                </div>
+                <div id="dakuonToggleArea" class="flex justify-end mb-3 shrink-0">
+                    <button id="toggleDakuonBtn" class="px-4 py-1.5 rounded-xl font-bold text-sm flex items-center justify-center gap-1 transition-all border bg-gray-50 text-gray-600 border-gray-200 shadow-sm"><span id="dakuonBtnText">ふつうのもじ</span></button>
+                </div>
+                <div id="charGrid" class="grid grid-cols-5 gap-2.5 overflow-y-auto pb-4"></div>
+            </div>
+
+            <!-- ★プリセット単語エリア (おすすめモード時のみ表示) -->
+            <div id="presetArea" class="hidden flex-col flex-1 pb-4">
+                <div class="bg-emerald-50 p-4 rounded-2xl border border-emerald-100 shrink-0">
+                    <h3 class="text-sm font-bold text-emerald-800 mb-3">せんせいの おすすめワード</h3>
+                    <div id="presetWordsList" class="flex flex-wrap gap-2"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript ロジック -->
+    <script>
+        // ==========================================
+        // 定数・データ定義
+        // ==========================================
+        const HIRAGANA_ROWS = [['あ','い','う','え','お'],['か','き','く','け','こ'],['さ','し','す','せ','そ'],['た','ち','つ','て','と'],['な','に','ぬ','ね','の'],['は','ひ','ふ','へ','ほ'],['ま','み','む','め','も'],['や','','ゆ','','よ'],['ら','り','る','れ','ろ'],['わ','','を','','ん']];
+        const DAKUON_ROWS = [['が','ぎ','ぐ','げ','ご'],['ざ','じ','ず','ぜ','ぞ'],['だ','ぢ','づ','で','ど'],['ば','び','ぶ','べ','ぼ'],['ぱ','ぴ','ぷ','ぺ','ぽ'],['','','','',''],['','','','','']];
+        const KATAKANA_ROWS = [['ア','イ','ウ','エ','オ'],['カ','キ','ク','ケ','コ'],['サ','シ','ス','セ','ソ'],['タ','チ','ツ','テ','ト'],['ナ','ニ','ヌ','ネ','ノ'],['ハ','ヒ','フ','ヘ','ホ'],['マ','ミ','ム','メ','モ'],['ヤ','','ユ','','ヨ'],['ラ','リ','ル','レ','ロ'],['ワ','','ヲ','','ン']];
+        const KATAKANA_DAKUON_ROWS = [['ガ','ギ','グ','ゲ','ゴ'],['ザ','ジ','ズ','ゼ','ゾ'],['ダ','ヂ','ヅ','デ','ド'],['バ','ビ','ブ','ベ','ボ'],['パ','ピ','プ','ペ','ポ'],['','','','',''],['','','','','']];
+        const NUMBER_ROWS = [['0','1','2','3','4'],['5','6','7','8','9'],['10','11','12','13','14'],['15','16','17','18','19'],['20','21','22','23','24'],['25','26','27','28','29'],['30','31','','','']];
+        
+        const VECTOR_DATA = { 'あ': [{x:0.2,y:0.3},{x:0.8,y:0.3}, {x:0.5,y:0.15},{x:0.5,y:0.55}, {x:0.5,y:0.6},{x:0.3,y:0.7},{x:0.35,y:0.8},{x:0.55,y:0.85},{x:0.75,y:0.75},{x:0.75,y:0.5},{x:0.6,y:0.45}] };
+        const NUM_VECTORS_BASE = { '0':[{x:0.5,y:0.15},{x:0.25,y:0.35},{x:0.25,y:0.65},{x:0.5,y:0.85},{x:0.75,y:0.65},{x:0.75,y:0.35},{x:0.5,y:0.15}],'1':[{x:0.5,y:0.15},{x:0.5,y:0.85}],'2':[{x:0.3,y:0.25},{x:0.5,y:0.15},{x:0.7,y:0.25},{x:0.7,y:0.35},{x:0.3,y:0.85},{x:0.75,y:0.85}],'3':[{x:0.3,y:0.2},{x:0.6,y:0.15},{x:0.7,y:0.25},{x:0.5,y:0.45},{x:0.7,y:0.65},{x:0.6,y:0.85},{x:0.3,y:0.8}],'4':[{x:0.65,y:0.15},{x:0.25,y:0.6},{x:0.85,y:0.6},{x:0.65,y:0.25},{x:0.65,y:0.85}],'5':[{x:0.65,y:0.2},{x:0.35,y:0.2},{x:0.3,y:0.45},{x:0.5,y:0.4},{x:0.7,y:0.55},{x:0.6,y:0.8},{x:0.3,y:0.8},{x:0.35,y:0.2},{x:0.75,y:0.2}],'6':[{x:0.6,y:0.15},{x:0.3,y:0.5},{x:0.3,y:0.75},{x:0.5,y:0.85},{x:0.7,y:0.75},{x:0.7,y:0.6},{x:0.35,y:0.6}],'7':[{x:0.25,y:0.2},{x:0.75,y:0.2},{x:0.4,y:0.85}],'8':[{x:0.6,y:0.2},{x:0.4,y:0.2},{x:0.3,y:0.35},{x:0.5,y:0.5},{x:0.7,y:0.65},{x:0.6,y:0.85},{x:0.4,y:0.85},{x:0.3,y:0.65},{x:0.5,y:0.5},{x:0.7,y:0.35},{x:0.6,y:0.2}],'9':[{x:0.7,y:0.5},{x:0.35,y:0.5},{x:0.25,y:0.35},{x:0.35,y:0.2},{x:0.6,y:0.2},{x:0.7,y:0.35},{x:0.7,y:0.5},{x:0.4,y:0.85}] };
+        const NUM_STROKE_COUNTS = { '0':1, '1':1, '2':1, '3':1, '4':2, '5':2, '6':1, '7':2, '8':1, '9':2 };
+        const CONFUSING_PAIRS = { 'あ':['お'],'お':['あ'],'い':['り','こ'],'り':['い'],'き':['さ'],'さ':['き'],'わ':['ね','れ'],'ね':['わ','れ'],'れ':['わ','ね'],'ぬ':['め'],'め':['ぬ'],'は':['ほ','ぱ','ば'],'ほ':['は'],'ま':['も'],'ソ':['ン'],'ン':['ソ'],'ツ':['シ'],'シ':['ツ'],'ぺ':['べ','へ'],'べ':['ぺ','へ'],'へ':['べ','ぺ'],'ぱ':['ば','は'],'ば':['ぱ','は'] };
+        const BASE_MAP = { 'が':'か','ぎ':'き','ぐ':'く','げ':'け','ご':'こ','ざ':'さ','じ':'し','ず':'す','ぜ':'せ','ぞ':'そ','だ':'た','ぢ':'ち','づ':'つ','で':'て','ど':'と','ば':'は','び':'ひ','ぶ':'ふ','べ':'へ','ぼ':'ほ','ぱ':'は','ぴ':'ひ','ぷ':'ふ','ぺ':'へ','ぽ':'ほ','ガ':'カ','ギ':'キ','グ':'ク','ゲ':'ケ','ゴ':'コ','ザ':'サ','ジ':'シ','ズ':'ス','ゼ':'セ','ゾ':'ソ','ダ':'タ','ヂ':'チ','ヅ':'ツ','デ':'テ','ド':'ト','バ':'ハ','ビ':'ヒ','ブ':'フ','ベ':'ヘ','ボ':'ホ','パ':'ハ','ピ':'ヒ','プ':'フ','ぺ':'ヘ','ポ':'ホ' };
+        const DAKUTEN_STROKES = [{x:0.75, y:0.15}, {x:0.85, y:0.25}, {x:0.85, y:0.15}, {x:0.95, y:0.25}];
+        const HANDAKUTEN_STROKES = [{x:0.85, y:0.12}, {x:0.95, y:0.12}, {x:0.95, y:0.22}, {x:0.85, y:0.22}, {x:0.85, y:0.12}];
+        const STROKE_COUNTS = { 'あ':3,'い':2,'う':2,'え':2,'お':3,'か':3,'き':3,'く':1,'け':3,'こ':2,'さ':3,'し':1,'す':2,'せ':3,'そ':1,'た':4,'ち':2,'つ':1,'て':1,'と':2,'な':4,'に':3,'ぬ':2,'ね':2,'の':1,'は':3,'ひ':1,'ふ':4,'へ':1,'ほ':4,'ま':3,'み':2,'む':3,'め':2,'も':3,'や':3,'ゆ':2,'よ':2,'ら':2,'り':2,'る':1,'れ':2,'ろ':1,'わ':2,'を':3,'ん':1,'ア':2,'イ':2,'ウ':3,'エ':3,'オ':3,'カ':2,'キ':3,'ク':2,'ケ':3,'コ':2,'サ':3,'シ':3,'ス':2,'セ':2,'ソ':2,'タ':3,'チ':3,'ツ':3,'テ':3,'ト':2,'ナ':2,'ニ':2,'ヌ':2,'ネ':4,'ノ':1,'ハ':2,'ヒ':2,'フ':1,'ヘ':1,'ホ':4,'マ':2,'ミ':3,'ム':2,'メ':2,'モ':3,'ヤ':2,'ユ':2,'ヨ':3,'ら':2,'リ':2,'ル':2,'レ':1,'ロ':3,'ワ':2,'ヲ':3,'ン':2 };
+        const CANVAS_BASE_SIZE = 400; const STROKE_WIDTH_BASE = 12; const DURATION_VALUES = [0.5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+        
+        // 保存キー設定
+        const STORAGE_KEY_SCORES = 'monjibotaru_scores_v7'; 
+        const STORAGE_KEY_SETTINGS = 'monjibotaru_settings_v8';
+        const DB_NAME = 'MonjibotaruDB_v6'; 
+        const DB_VERSION = 1; 
+
+        // タイマー・音声用変数
+        let stopTimer = null; let stopWarningInterval = null;
+        const stopVoice = new Audio('mstop.wav'); const warnVoice = new Audio('mnotice.wav');
+        stopVoice.preload = 'auto'; warnVoice.preload = 'auto';
+
+        const soundOptions = [
+            { id: 'siren', label: 'はやいよ！の サイレン', type: 'synth', icon: '🚓' },
+            { id: 'voiceFast', label: 'はやいよ！の こえ', type: 'audio', audioObj: warnVoice, icon: '👮' },
+            { id: 'horn', label: 'とまってるよ！の クラクション', type: 'synth', icon: '🎺' },
+            { id: 'voiceStop', label: 'とまってるよ！の こえ', type: 'audio', audioObj: stopVoice, icon: '🗣️' },
+            { id: 'alert', label: 'はみだしたときの ブザー', type: 'synth', icon: '❌' },
+            { id: 'fail', label: 'やりなおしの おと', type: 'synth', icon: '💦' },
+            { id: 'warn', label: 'かくばしょが ちがう おと', type: 'synth', icon: '🤔' },
+            { id: 'btn', label: 'ボタンの おと', type: 'synth', icon: '🔘' },
+            { id: 'success', label: 'せいかいの おと', type: 'synth', icon: '💮' }
+        ];
+
+        let state = { 
+            writeMode: 'single', // 'single' または 'double'
+            selectorTab: 'single', // 'single', 'double', 'preset'
+            selectedChar: 'あ',
+            selectedWord: ['あ', 'り'], 
+            presetWords: ['あり', 'いぬ', 'ねこ', 'うし', 'くま', 'とり', 'はな', 'やま', 'うみ', 'そら', 'あお', 'あか'], // ★編集可能になったリスト
+            presetEditor: { chars: [], mode: 'hiragana', showDakuon: false }, // ★編集画面用の状態
+            
+            charSize: 10, isHotaruMode: true, isOneTimeFlash: false, 
+            visibleDuration: 2, hiddenDuration: 2, isSelectorOpen: false, showSettings: false, 
+            showDakuon: false, charMode: 'hiragana', isGuideVisible: true, isDrawing: false, 
+            feedback: null, hasError: false, scores: {}, strokes: [], targetSkeleton: [],
+            isSpeedLimitOn: true, speedLimit: 50, speedDemoMode: 'auto',
+            pointHistory: [], isSpeedOver: false, isStopWarningActive: false,
+            hasSpeedOverThisTurn: false, isWarningActive: false, accumulatedDist: 0,
+            
+            soundSettings: { btn: true, success: true, alert: true, fail: true, warn: true, siren: true, voiceFast: true, horn: true, voiceStop: true },
+            showSoundPopupOnStart: true
+        };
+
+        const els = { 
+            openSelectorBtn: document.getElementById('openSelectorBtn'), openSettingsBtn: document.getElementById('openSettingsBtn'), settingsPanel: document.getElementById('settingsPanel'), closeSettingsBtn: document.getElementById('closeSettingsBtn'), charSizeSlider: document.getElementById('charSizeSlider'), charSizeDisplay: document.getElementById('charSizeDisplay'), hotaruSwitchBtn: document.getElementById('hotaruSwitchBtn'), hotaruIndicator: document.getElementById('hotaruIndicator'), hotaruControls: document.getElementById('hotaruControls'), visibleDurationSlider: document.getElementById('visibleDurationSlider'), visibleDurationDisplay: document.getElementById('visibleDurationDisplay'), hiddenDurationSlider: document.getElementById('hiddenDurationSlider'), hiddenDurationDisplay: document.getElementById('hiddenDurationDisplay'), oneTimeFlashBtn: document.getElementById('oneTimeFlashBtn'), canvasWrapper: document.getElementById('canvasWrapper'), gridCanvas: document.getElementById('gridCanvas'), guideCanvas: document.getElementById('guideCanvas'), drawingCanvas: document.getElementById('drawingCanvas'), feedbackCanvas: document.getElementById('feedbackCanvas'), fireflyIcon: document.getElementById('fireflyIcon'), eraseBtn: document.getElementById('eraseBtn'), submitBtn: document.getElementById('submitBtn'), retryBtn: document.getElementById('retryBtn'), feedbackArea: document.getElementById('feedbackArea'), feedbackMessage: document.getElementById('feedbackMessage'), feedbackStars: document.getElementById('feedbackStars'), selectorModal: document.getElementById('selectorModal'), closeSelectorBtn: document.getElementById('closeSelectorBtn'), toggleDakuonBtn: document.getElementById('toggleDakuonBtn'), charGrid: document.getElementById('charGrid'), dakuonToggleArea: document.getElementById('dakuonToggleArea'), dakuonBtnText: document.getElementById('dakuonBtnText'), dataCountDisplay: document.getElementById('dataCountDisplay'), saveStatus: document.getElementById('saveStatus'), systemStatusDisplay: document.getElementById('systemStatusDisplay'),
+            speedLimitSwitchBtn: document.getElementById('speedLimitSwitchBtn'), speedLimitControls: document.getElementById('speedLimitControls'), speedLimitSlider: document.getElementById('speedLimitSlider'), speedLimitDisplay: document.getElementById('speedLimitDisplay'), mainSpeedSign: document.getElementById('mainSpeedSign'), mainSpeedSignValue: document.getElementById('mainSpeedSignValue'), speedDemoCanvas: document.getElementById('speedDemoCanvas'), tabDemoSpeed: document.getElementById('tabDemoSpeed'), tabManualSpeed: document.getElementById('tabManualSpeed'), manualOverlay: document.getElementById('manualOverlay'), hornFlashOverlay: document.getElementById('hornFlashOverlay'), noticeOverlay: document.getElementById('noticeOverlay'),
+            soundInitPopup: document.getElementById('soundInitPopup'), soundInitPopupInner: document.getElementById('soundInitPopupInner'), btnStartApp: document.getElementById('btnStartApp'), btnOpenSoundSettingsFromInit: document.getElementById('btnOpenSoundSettingsFromInit'), dontShowPopupCb: document.getElementById('dontShowPopupCb'), soundSettingsModal: document.getElementById('soundSettingsModal'), soundSettingsModalInner: document.getElementById('soundSettingsModalInner'), btnOpenSoundSettingsFromMenu: document.getElementById('btnOpenSoundSettingsFromMenu'), closeSoundSettingsBtn: document.getElementById('closeSoundSettingsBtn'), soundOptionsList: document.getElementById('soundOptionsList'), btnAllSoundOn: document.getElementById('btnAllSoundOn'), btnAllSoundOff: document.getElementById('btnAllSoundOff'),
+            
+            // タブ構造用DOM
+            tabModeSingle: document.getElementById('tabModeSingle'),
+            tabModeDouble: document.getElementById('tabModeDouble'),
+            tabModePreset: document.getElementById('tabModePreset'),
+            tabTypeHiragana: document.getElementById('tabTypeHiragana'),
+            tabTypeKatakana: document.getElementById('tabTypeKatakana'),
+            tabTypeNumber: document.getElementById('tabTypeNumber'),
+            doubleInputArea: document.getElementById('doubleInputArea'),
+            keyboardArea: document.getElementById('keyboardArea'),
+            presetArea: document.getElementById('presetArea'),
+            doubleInput1: document.getElementById('doubleInput1'),
+            doubleInput2: document.getElementById('doubleInput2'),
+            btnClearDoubleInput: document.getElementById('btnClearDoubleInput'),
+            btnStartCustomDouble: document.getElementById('btnStartCustomDouble'),
+            presetWordsList: document.getElementById('presetWordsList'),
+
+            // ★おすすめワード設定用DOM
+            btnOpenPresetSettingsFromMenu: document.getElementById('btnOpenPresetSettingsFromMenu'),
+            presetSettingsModal: document.getElementById('presetSettingsModal'),
+            presetSettingsModalInner: document.getElementById('presetSettingsModalInner'),
+            closePresetSettingsBtn: document.getElementById('closePresetSettingsBtn'),
+            presetEditorList: document.getElementById('presetEditorList'),
+            presetEditorInput1: document.getElementById('presetEditorInput1'),
+            presetEditorInput2: document.getElementById('presetEditorInput2'),
+            btnClearPresetInput: document.getElementById('btnClearPresetInput'),
+            tabPresetHiragana: document.getElementById('tabPresetHiragana'),
+            tabPresetKatakana: document.getElementById('tabPresetKatakana'),
+            tabPresetNumber: document.getElementById('tabPresetNumber'),
+            presetDakuonToggleArea: document.getElementById('presetDakuonToggleArea'),
+            presetToggleDakuonBtn: document.getElementById('presetToggleDakuonBtn'),
+            presetDakuonBtnText: document.getElementById('presetDakuonBtnText'),
+            presetEditorKeyboard: document.getElementById('presetEditorKeyboard'),
+            btnAddPresetWord: document.getElementById('btnAddPresetWord')
+        };
+
+        const ctx = { grid: els.gridCanvas.getContext('2d'), guide: els.guideCanvas.getContext('2d'), draw: els.drawingCanvas.getContext('2d'), feedback: els.feedbackCanvas.getContext('2d'), demo: els.speedDemoCanvas.getContext('2d') };
+        let timerRef = null; let alertThrottleRef = 0; let guideCheckpointsRef = []; 
+        let demoAnimRef = null; let demoProgress = 0; let demoPoints = [];
+        let doubleInputChars = []; 
+
+        function log(msg) { console.log(msg); }
+        function getDurationIndex(seconds) { const idx = DURATION_VALUES.indexOf(seconds); return idx !== -1 ? idx : 2; }
+        function getDurationSeconds(index) { return DURATION_VALUES[index] || 2; }
+        function getCurrentSaveKey() { return state.writeMode === 'single' ? state.selectedChar : state.selectedWord.join(''); }
+
+        function initializeData() {
+            for (let i = 0; i <= 31; i++) { const str = i.toString(); if (str.length === 1) { VECTOR_DATA[str] = NUM_VECTORS_BASE[str]; STROKE_COUNTS[str] = NUM_STROKE_COUNTS[str]; } else { const s1 = str[0]; const s2 = str[1]; const v1 = NUM_VECTORS_BASE[s1].map(p => ({ x: p.x * 0.45 + 0.05, y: p.y * 0.9 + 0.05 })); const v2 = NUM_VECTORS_BASE[s2].map(p => ({ x: p.x * 0.45 + 0.52, y: p.y * 0.9 + 0.05 })); VECTOR_DATA[str] = [...v1, ...v2]; STROKE_COUNTS[str] = NUM_STROKE_COUNTS[s1] + NUM_STROKE_COUNTS[s2]; } }
+            Object.keys(BASE_MAP).forEach(char => { const baseChar = BASE_MAP[char]; const isHandakuten = 'ぱぴぷぺぽパピプペポ'.includes(char); if(VECTOR_DATA[baseChar]) { const modifier = isHandakuten ? HANDAKUTEN_STROKES : DAKUTEN_STROKES; VECTOR_DATA[char] = [...VECTOR_DATA[baseChar], ...modifier]; } if(STROKE_COUNTS[baseChar]) { STROKE_COUNTS[char] = STROKE_COUNTS[baseChar] + (isHandakuten ? 1 : 2); } });
+            if(VECTOR_DATA['7']) demoPoints = resamplePath(VECTOR_DATA['7'].map(p=>({x:p.x, y:p.y})), 100);
+        }
+
+        let sharedAudioCtx = null; let audioUnlocked = false; 
+
+        function unlockAudio() {
+            if (audioUnlocked) return;
+            try {
+                const AC = window.AudioContext || window.webkitAudioContext; 
+                if (AC) {
+                    if (!sharedAudioCtx) sharedAudioCtx = new AC();
+                    if (sharedAudioCtx.state === 'suspended') sharedAudioCtx.resume();
+                    const o = sharedAudioCtx.createOscillator(); const g = sharedAudioCtx.createGain();
+                    g.gain.value = 0; o.connect(g); g.connect(sharedAudioCtx.destination);
+                    o.start(); o.stop(sharedAudioCtx.currentTime + 0.01);
+                }
+                const unlockHTML5 = (audio) => { audio.volume = 0; const p = audio.play(); if (p !== undefined) { p.then(() => { audio.pause(); audio.currentTime = 0; audio.volume = 1; }).catch(() => { audio.volume = 1; }); } };
+                unlockHTML5(stopVoice); unlockHTML5(warnVoice); audioUnlocked = true;
+                document.removeEventListener('touchstart', unlockAudio); document.removeEventListener('mousedown', unlockAudio);
+            } catch (e) { log("音声解除エラー: " + e); }
+        }
+
+        function playSound(type, force = false) { 
+            if (!force && state.soundSettings[type] === false) return; 
+            const AC = window.AudioContext || window.webkitAudioContext; if(!AC) return; 
+            if (!sharedAudioCtx) sharedAudioCtx = new AC(); const ctx = sharedAudioCtx; if (ctx.state === 'suspended') ctx.resume();
+            const o=ctx.createOscillator(); const g=ctx.createGain(); o.connect(g); g.connect(ctx.destination); const t=ctx.currentTime; 
+            
+            if(type==='btn'){o.type='sine';o.frequency.setValueAtTime(880,t);o.frequency.exponentialRampToValueAtTime(440,t+0.1);g.gain.setValueAtTime(0.2,t);g.gain.exponentialRampToValueAtTime(0.01,t+0.1);o.start();o.stop(t+0.15);}
+            else if(type==='alert'||type==='fail'){o.type='sawtooth';o.frequency.setValueAtTime(150,t);o.frequency.linearRampToValueAtTime(100,t+(type==='alert'?0.2:0.4));g.gain.setValueAtTime(0.2,t);g.gain.linearRampToValueAtTime(0.01,t+(type==='alert'?0.2:0.4));o.start();o.stop(t+(type==='alert'?0.2:0.4));}
+            else if(type==='warn'){o.type='square'; o.frequency.setValueAtTime(120,t); o.frequency.linearRampToValueAtTime(80,t+0.1);o.frequency.setValueAtTime(120,t+0.15); o.frequency.linearRampToValueAtTime(80,t+0.25);g.gain.setValueAtTime(0.1,t); g.gain.linearRampToValueAtTime(0.01,t+0.3);o.start();o.stop(t+0.3);} 
+            else if(type==='siren'){ 
+                o.type='sawtooth'; const o2 = ctx.createOscillator(); o2.type = 'square'; o2.connect(g);
+                o.frequency.setValueAtTime(400, t); o.frequency.linearRampToValueAtTime(900, t + 0.1); o.frequency.linearRampToValueAtTime(400, t + 0.2); o2.frequency.setValueAtTime(405, t); o2.frequency.linearRampToValueAtTime(905, t + 0.1); o2.frequency.linearRampToValueAtTime(405, t + 0.2);
+                o.frequency.setValueAtTime(400, t + 0.3); o.frequency.linearRampToValueAtTime(900, t + 0.4); o.frequency.linearRampToValueAtTime(400, t + 0.5); o2.frequency.setValueAtTime(405, t + 0.3); o2.frequency.linearRampToValueAtTime(905, t + 0.4); o2.frequency.linearRampToValueAtTime(405, t + 0.5);
+                g.gain.setValueAtTime(0.04, t); g.gain.linearRampToValueAtTime(0.04, t + 0.15); g.gain.linearRampToValueAtTime(0.01, t + 0.2); g.gain.setValueAtTime(0.04, t + 0.3); g.gain.linearRampToValueAtTime(0.04, t + 0.45); g.gain.linearRampToValueAtTime(0.01, t + 0.5);
+                o.start(t); o.stop(t + 0.5); o2.start(t); o2.stop(t + 0.5);
+            }
+            else if(type==='horn'){ 
+                o.type='sawtooth'; o.frequency.setValueAtTime(450,t); o.frequency.setValueAtTime(450, t+0.2);
+                const o2 = ctx.createOscillator(); o2.type='sawtooth'; o2.frequency.setValueAtTime(500,t); o2.frequency.setValueAtTime(500, t+0.2); o2.connect(g); o2.start(t); o2.stop(t+0.35);
+                g.gain.setValueAtTime(0.05, t); g.gain.linearRampToValueAtTime(0.05, t+0.1); g.gain.linearRampToValueAtTime(0.01, t+0.15); g.gain.setValueAtTime(0.05, t+0.2); g.gain.linearRampToValueAtTime(0.05, t+0.3); g.gain.linearRampToValueAtTime(0.01, t+0.35);
+                o.start(t); o.stop(t+0.35);
+            }
+            else{o.type='triangle';o.frequency.setValueAtTime(523,t);o.frequency.setValueAtTime(659,t+0.1);o.frequency.setValueAtTime(783,t+0.2);g.gain.setValueAtTime(0.1,t);g.gain.linearRampToValueAtTime(0,t+0.6);o.start();o.stop(t+0.6);} 
+        }
+
+        // ==========================================
+        // ストレージシステム
+        // ==========================================
+        // Browser storage can be unavailable or blocked inside an embedded view.
+        // Always settle so localStorage/cookies can serve as fallbacks.
+        function withDeadline(promise, milliseconds, label) {
+            return new Promise((resolve, reject) => {
+                const timer = setTimeout(() => reject(new Error(label + ' timeout')), milliseconds);
+                Promise.resolve(promise).then(value => { clearTimeout(timer); resolve(value); }, error => { clearTimeout(timer); reject(error); });
+            });
+        }
+        function openDB() {
+            return new Promise((resolve, reject) => {
+                let expired = false;
+                const timer = setTimeout(() => { expired = true; reject(new Error('IndexedDB timeout')); }, 1500);
+                let request;
+                try { request = indexedDB.open(DB_NAME, DB_VERSION); }
+                catch (error) { clearTimeout(timer); reject(error); return; }
+                request.onupgradeneeded = (event) => {
+                    if (expired) { event.target.transaction.abort(); return; }
+                    const db = event.target.result;
+                    if (!db.objectStoreNames.contains('scores')) db.createObjectStore('scores', { keyPath: 'id' });
+                    if (!db.objectStoreNames.contains('settings')) db.createObjectStore('settings', { keyPath: 'id' });
+                };
+                request.onsuccess = () => {
+                    clearTimeout(timer);
+                    if (expired) { request.result.close(); return; }
+                    resolve(request.result);
+                };
+                request.onerror = request.onblocked = () => { expired = true; clearTimeout(timer); reject(request.error || new Error('IndexedDB blocked')); };
+            });
+        }
+        async function saveToIDB(storeName, data) {
+            let db;
+            try {
+                db = await openDB();
+                await withDeadline(new Promise((resolve, reject) => {
+                    const tx = db.transaction(storeName, 'readwrite');
+                    tx.oncomplete = resolve;
+                    tx.onerror = tx.onabort = () => reject(tx.error || new Error('Storage write failed'));
+                    tx.objectStore(storeName).put({ id: 'main', data });
+                }), 1500, 'Storage write');
+                return true;
+            } catch (error) { return false; }
+            finally { if (db) db.close(); }
+        }
+        async function loadFromIDB(storeName) {
+            let db;
+            try {
+                db = await openDB();
+                return await withDeadline(new Promise((resolve, reject) => {
+                    const tx = db.transaction(storeName, 'readonly');
+                    tx.onabort = () => reject(tx.error || new Error('Storage read aborted'));
+                    const request = tx.objectStore(storeName).get('main');
+                    request.onsuccess = () => resolve(request.result ? request.result.data : null);
+                    request.onerror = () => reject(request.error);
+                }), 1500, 'Storage read');
+            } catch (error) { return null; }
+            finally { if (db) db.close(); }
+        }
+        function setCookie(name, val, days) { try { const d = new Date(); d.setTime(d.getTime() + (days*24*60*60*1000)); document.cookie = name + "=" + encodeURIComponent(val) + ";expires="+ d.toUTCString() + ";path=/;SameSite=Strict"; } catch(e){} }
+        function getCookie(name) { try { const n = name + "="; const ca = document.cookie.split(';'); for(let i=0;i<ca.length;i++) { let c = ca[i]; while (c.charAt(0)==' ') c = c.substring(1); if (c.indexOf(n) == 0) return decodeURIComponent(c.substring(n.length)); } } catch(e){} return null; }
+
+        async function loadScores() {
+            let data = null; let src = "なし"; const idbData = await loadFromIDB('scores');
+            if (idbData && Object.keys(idbData).length > 0) { data = idbData; src = "IDB"; }
+            if (!data) { try { const ls = localStorage.getItem(STORAGE_KEY_SCORES); if(ls){ data = JSON.parse(ls); src = "LS"; } } catch(e){} }
+            if (!data) { const ck = getCookie(STORAGE_KEY_SCORES); if(ck){ try{ data = JSON.parse(ck); src = "Cookie"; }catch(e){} } }
+            if (data) { state.scores = data; try { localStorage.setItem(STORAGE_KEY_SCORES, JSON.stringify(data)); } catch (error) { log('保存領域を利用できません: ' + error.message); } saveToIDB('scores', data); } else { state.scores = {}; }
+            updateDataCount();
+            if(els.systemStatusDisplay) { els.systemStatusDisplay.textContent = "OK (" + src + ")"; els.systemStatusDisplay.className = "text-[10px] font-mono text-white bg-green-500 px-2 py-1 rounded-full shadow-inner"; }
+        }
+
+        async function saveScore(stars) {
+            // ★ 2文字モードのときは記録しないようにする
+            if (state.writeMode === 'double') return;
+
+            const key = getCurrentSaveKey();
+            const cur = state.scores[key]; let shouldUpdate = false;
+            if(!cur) shouldUpdate = true;
+            else { if (stars > cur.stars) shouldUpdate = true; else if (stars === cur.stars) { if (state.charSize < cur.size) shouldUpdate = true; else if (state.charSize === cur.size && state.isHotaruMode && !cur.isHotaru) shouldUpdate = true; } }
+            if (shouldUpdate) {
+                state.scores[key] = { stars, size: state.charSize, isHotaru: state.isHotaruMode }; 
+                const json = JSON.stringify(state.scores); let resLS = false, resCK = false, resIDB = false;
+                try { localStorage.setItem(STORAGE_KEY_SCORES, json); resLS = true; } catch(e){}
+                try { setCookie(STORAGE_KEY_SCORES, json, 365); resCK = true; } catch(e){}
+                resIDB = await saveToIDB('scores', state.scores); 
+                if(resLS || resCK || resIDB) { els.saveStatus.textContent = "きろく されました ◎"; els.saveStatus.className = "mt-3 text-sm font-bold h-5 text-green-600 animate-bounce"; updateDataCount(); } 
+                else { els.saveStatus.textContent = "ほぞん エラー ×"; els.saveStatus.className = "mt-3 text-sm font-bold h-5 text-red-500"; }
+            } else { els.saveStatus.textContent = "きろく されました ◎"; els.saveStatus.className = "mt-3 text-sm font-bold h-5 text-green-600"; }
+        }
+
+        async function resetAllData() { if(confirm("【きをつけて！】\nきろく を ぜんぶ けしますか？")) { localStorage.removeItem(STORAGE_KEY_SCORES); setCookie(STORAGE_KEY_SCORES, "", -1); const db = await openDB(); const tx = db.transaction('scores', 'readwrite'); tx.objectStore('scores').clear(); state.scores = {}; updateDataCount(); renderGrid(); } }
+        function updateDataCount() { if(els.dataCountDisplay) els.dataCountDisplay.textContent = Object.keys(state.scores).length + "こ"; }
+
+        function saveAppSettings() {
+            const s = { charSize: state.charSize, isHotaruMode: state.isHotaruMode, visibleDuration: state.visibleDuration, hiddenDuration: state.hiddenDuration, isOneTimeFlash: state.isOneTimeFlash, charMode: state.charMode, showDakuon: state.showDakuon, isSpeedLimitOn: state.isSpeedLimitOn, speedLimit: state.speedLimit, soundSettings: state.soundSettings, showSoundPopupOnStart: state.showSoundPopupOnStart, presetWords: state.presetWords };
+            const json = JSON.stringify(s); try { localStorage.setItem(STORAGE_KEY_SETTINGS, json); } catch(e){} try { setCookie(STORAGE_KEY_SETTINGS, json, 365); } catch(e){} saveToIDB('settings', s);
+        }
+
+        async function loadAppSettings() {
+            let s = await loadFromIDB('settings');
+            if(!s) try { const ls = localStorage.getItem(STORAGE_KEY_SETTINGS); if(ls) s = JSON.parse(ls); } catch(e){}
+            if(!s) try { const ck = getCookie(STORAGE_KEY_SETTINGS); if(ck) s = JSON.parse(ck); } catch(e){}
+            if (s) { state.charSize = s.charSize||10; state.isHotaruMode = s.isHotaruMode!==undefined?s.isHotaruMode:true; state.visibleDuration = s.visibleDuration||2; state.hiddenDuration = s.hiddenDuration||2; state.isOneTimeFlash = s.isOneTimeFlash!==undefined?s.isOneTimeFlash:false; state.charMode = s.charMode||'hiragana'; state.showDakuon = s.showDakuon!==undefined?s.showDakuon:false; state.isSpeedLimitOn = s.isSpeedLimitOn!==undefined?s.isSpeedLimitOn:true; state.speedLimit = s.speedLimit||50; if (s.soundSettings) state.soundSettings = { ...state.soundSettings, ...s.soundSettings }; if (s.showSoundPopupOnStart !== undefined) state.showSoundPopupOnStart = s.showSoundPopupOnStart; if (s.presetWords) state.presetWords = s.presetWords; } 
+        }
+
+        // ==========================================
+        // 描画・判定ロジック
+        // ==========================================
+        function updateGuideOpacity(isVisible) { els.guideCanvas.style.opacity = isVisible ? 0.6 : 0; els.fireflyIcon.style.opacity = isVisible ? 1 : 0.2; }
+        function startHotaruCycle() { if(timerRef) clearTimeout(timerRef); if(!state.isHotaruMode){ state.isGuideVisible=true; updateGuideOpacity(true); return; } let isVisible = true; state.isGuideVisible = true; updateGuideOpacity(true); if (state.isOneTimeFlash) { timerRef = setTimeout(() => { state.isGuideVisible = false; updateGuideOpacity(false); }, state.visibleDuration * 1000); } else { const loop = () => { isVisible = !isVisible; state.isGuideVisible = isVisible; updateGuideOpacity(isVisible); const nextDuration = isVisible ? state.visibleDuration : state.hiddenDuration; timerRef = setTimeout(loop, nextDuration * 1000); }; timerRef = setTimeout(loop, state.visibleDuration * 1000); } }
+        
+        function drawGridLayer() { 
+            const w = els.gridCanvas.width; const h = els.gridCanvas.height;
+            ctx.grid.clearRect(0,0,w,h); 
+            ctx.grid.strokeStyle='#E2E8F0'; 
+            
+            ctx.grid.lineWidth=2; const s=150+(state.charSize-1)*20, b=s*1.2, halfB=b/2;
+            const cy = h/2;
+            
+            if (state.writeMode === 'single') {
+                const c = w/2; ctx.grid.setLineDash([8,8]); ctx.grid.strokeRect(c-halfB,cy-halfB,b,b); ctx.grid.beginPath(); ctx.grid.moveTo(c,cy-halfB);ctx.grid.lineTo(c,cy+halfB);ctx.grid.moveTo(c-halfB,cy);ctx.grid.lineTo(c+halfB,cy);ctx.grid.stroke(); ctx.grid.setLineDash([]); 
+            } else {
+                const cx = w/2;
+                ctx.grid.setLineDash([]); ctx.grid.beginPath(); ctx.grid.lineWidth = 4; ctx.grid.strokeStyle = '#CBD5E1'; ctx.grid.moveTo(cx, 0); ctx.grid.lineTo(cx, h); ctx.grid.stroke();
+                ctx.grid.lineWidth = 2; ctx.grid.strokeStyle = '#E2E8F0'; ctx.grid.setLineDash([6,6]);
+                const cL = cx - halfB, cR = cx + halfB;
+                ctx.grid.strokeRect(cL-halfB,cy-halfB,b,b); ctx.grid.beginPath(); ctx.grid.moveTo(cL,cy-halfB);ctx.grid.lineTo(cL,cy+halfB);ctx.grid.moveTo(cL-halfB,cy);ctx.grid.lineTo(cL+halfB,cy);ctx.grid.stroke();
+                ctx.grid.strokeRect(cR-halfB,cy-halfB,b,b); ctx.grid.beginPath(); ctx.grid.moveTo(cR,cy-halfB);ctx.grid.lineTo(cR,cy+halfB);ctx.grid.moveTo(cR-halfB,cy);ctx.grid.lineTo(cR+halfB,cy);ctx.grid.stroke();
+                ctx.grid.setLineDash([]);
+            }
+        }
+        
+        function drawGuide() { 
+            const w = els.guideCanvas.width; const h = els.guideCanvas.height;
+            ctx.guide.clearRect(0,0,w,h); 
+            ctx.guide.fillStyle='#E2E8F0'; ctx.guide.textBaseline='middle'; 
+            
+            const s=150+(state.charSize-1)*20; const b=s*1.2; const halfB=b/2; const cx=w/2;
+            ctx.guide.font=`${s}px "Klee One", cursive`; ctx.guide.textAlign='center'; 
+            if (state.writeMode === 'single') {
+                ctx.guide.fillText(state.selectedChar, cx, h/2 - s*0.055); 
+            } else {
+                ctx.guide.fillText(state.selectedWord[0], cx - halfB, h/2 - s*0.055);
+                ctx.guide.fillText(state.selectedWord[1], cx + halfB, h/2 - s*0.055);
+            }
+            state.targetSkeleton = extractSkeletonFromCanvas(ctx.guide, w, h); 
+            generateCheckpoints(); drawGridLayer(); 
+        }
+
+        function extractSkeletonFromCanvas(sourceCtx, w, h, colorFilterFn) { const scale = 0.5; const sw = Math.floor(w * scale); const sh = Math.floor(h * scale); const tempCanvas = document.createElement('canvas'); tempCanvas.width = sw; tempCanvas.height = sh; const tempCtx = tempCanvas.getContext('2d'); tempCtx.drawImage(sourceCtx.canvas, 0, 0, w, h, 0, 0, sw, sh); const imageData = tempCtx.getImageData(0, 0, sw, sh); const data = imageData.data; const binary = new Int8Array(sw * sh); for (let i = 0; i < data.length; i += 4) { const r=data[i], g=data[i+1], b=data[i+2], a=data[i+3]; const isTarget = colorFilterFn ? colorFilterFn(r,g,b,a) : (a > 50); binary[i/4] = isTarget ? 1 : 0; } let changed = true; const neighborOffsets = [-sw, -sw+1, 1, sw+1, sw, sw-1, -1, -sw-1]; const pointsToDelete = []; while (changed) { changed = false; for (let step = 0; step < 2; step++) { pointsToDelete.length = 0; for (let y = 1; y < sh - 1; y++) { for (let x = 1; x < sw - 1; x++) { const p1 = y * sw + x; if (binary[p1] === 0) continue; let neighbors = 0; let transitions = 0; const p = []; for (let k = 0; k < 8; k++) { p[k] = binary[p1 + neighborOffsets[k]]; neighbors += p[k]; } for (let k = 0; k < 8; k++) { transitions += (p[k] === 0 && p[(k+1)%8] === 1) ? 1 : 0; } if (neighbors >= 2 && neighbors <= 6 && transitions === 1) { let c1, c2; if (step === 0) { c1 = (p[0] * p[2] * p[4] === 0); c2 = (p[2] * p[4] * p[6] === 0); } else { c1 = (p[0] * p[2] * p[6] === 0); c2 = (p[0] * p[4] * p[6] === 0); } if (c1 && c2) { pointsToDelete.push(p1); changed = true; } } } } for (let i = 0; i < pointsToDelete.length; i++) binary[pointsToDelete[i]] = 0; } } const skeletonPoints = []; for (let y = 0; y < sh; y++) { for (let x = 0; x < sw; x++) { if (binary[y * sw + x] === 1) skeletonPoints.push({ x: x / scale, y: y / scale }); } } return skeletonPoints; }
+        function resamplePath(points, n) { if(points.length===0)return[]; let tl=0; for(let i=1;i<points.length;i++)tl+=Math.hypot(points[i].x-points[i-1].x, points[i].y-points[i-1].y); const s=tl/(n-1), np=[points[0]]; let cd=0; for(let i=1;i<points.length;i++){ let d=Math.hypot(points[i].x-points[i-1].x, points[i].y-points[i-1].y); if(cd+d>=s){ let r=s-cd, t=r/d, nx=points[i-1].x+(points[i].x-points[i-1].x)*t, ny=points[i-1].y+(points[i].y-points[i-1].y)*t; np.push({x:nx,y:ny}); points.splice(i,0,{x:nx,y:ny}); cd=0; }else{ cd+=d; } if(np.length>=n)break; } while(np.length<n)np.push(points[points.length-1]); return np; }
+        function normalizeCoordinates(pts) { let mx=Infinity,Mx=-Infinity,my=Infinity,My=-Infinity; pts.forEach(p=>{if(p.x<mx)mx=p.x;if(p.x>Mx)Mx=p.x;if(p.y<my)my=p.y;if(p.y>My)My=p.y;}); const w=Mx-mx, h=My-my, d=Math.max(w,h)||1; return pts.map(p=>({x:(p.x-mx)/d,y:(p.y-my)/d})); }
+        function expandPoints(np) { return np.map(p=>({x:p.x*CANVAS_BASE_SIZE, y:p.y*CANVAS_BASE_SIZE})); }
+        function calculateVectorScore(target, user) { const n = 40; const un = normalizeCoordinates(resamplePath(user, n)); const tn = normalizeCoordinates(resamplePath(expandPoints(target), n)); let td = 0; for (let i = 0; i < n; i++) td += Math.hypot(un[i].x - tn[i].x, un[i].y - tn[i].y); return Math.max(0, 100 - (td / n) * 100); }
+        function findBestMatchChar(userPoints) { let bestChar = null; let bestScore = -1; for (const char in VECTOR_DATA) { if(!VECTOR_DATA.hasOwnProperty(char)) continue; const s = calculateVectorScore(VECTOR_DATA[char], userPoints); if (s > bestScore) { bestScore = s; bestChar = char; } } return { bestChar, bestScore }; }
+        function getStrokeStats(stroke) { if (!stroke || stroke.length === 0) return { length: 0, bbox: {w:0, h:0}, isClosed: false, density: 0 }; let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity; let length = 0; for (let i = 0; i < stroke.length; i++) { minX = Math.min(minX, stroke[i].x); maxX = Math.max(maxX, stroke[i].x); minY = Math.min(minY, stroke[i].y); maxY = Math.max(maxY, stroke[i].y); if (i > 0) length += Math.hypot(stroke[i].x - stroke[i-1].x, stroke[i].y - stroke[i-1].y); } const w = maxX - minX; const h = maxY - minY; const start = stroke[0]; const end = stroke[stroke.length - 1]; const dist = Math.hypot(start.x - end.x, start.y - end.y); const diag = Math.hypot(w, h); const density = length / (diag || 1); const isClosed = (dist < Math.max(w, h) * 0.4) && (density > 2.0); return { length, bbox: {w, h, x:minX, y:minY}, isClosed, density, dist, diag }; }
+        function checkDakutenHandakuten(char, strokes) { const isHandakuten = 'ぱぴぷぺぽパピプペポ'.includes(char); const isDakuten = 'がぎぐげござじずぜぞだぢづでどばびぶべぼガギグゲゴザジズゼゾダヂヅデドバビブベボ'.includes(char); if (!isNaN(parseInt(char))) return { ok: true }; if (!isHandakuten && !isDakuten) { const baseCount = STROKE_COUNTS[char]; if (strokes.length > baseCount + 1) return { ok: false, msg: "よけいな せん があるよ" }; return { ok: true }; } const expected = STROKE_COUNTS[char]; if (isHandakuten) { if (strokes.length < expected) return { ok: false, msg: "まる が ないよ" }; if (strokes.length > expected) return { ok: false, msg: "かたちに きをつけて！" }; const stats = getStrokeStats(strokes[strokes.length-1]); if (stats.density > 4.0) return { ok: false, msg: "まる を ぬりつぶさないで！" }; if (stats.bbox.w < 25 || stats.bbox.h < 25) { return { ok: false, msg: "まる が ちいさすぎるよ" }; } if (stats.density < 1.5) { return { ok: false, msg: "それは てんてん かな？" }; } if (!stats.isClosed && stats.length > 20 && stats.density < 1.8) { return { ok: false, msg: "まる が とじていないよ" }; } return { ok: true }; } if (isDakuten) { if (strokes.length < expected) { const stats = getStrokeStats(strokes[strokes.length-1]); if (stats.density > 1.8) { return { ok: false, msg: "それは まる（ぺ）じゃない？" }; } return { ok: false, msg: "てんてん が たりないよ" }; } const stats = getStrokeStats(strokes[strokes.length-1]); if (stats.isClosed && stats.density > 2.5) { return { ok: false, msg: "それは まる にみえるよ" }; } return { ok: true }; } return { ok: true }; }
+
+        function generateCheckpoints() { const w = els.guideCanvas.width; const h = els.guideCanvas.height; const d=ctx.guide.getImageData(0,0,w,h).data; guideCheckpointsRef=[]; for(let y=0;y<h;y+=5){for(let x=0;x<w;x+=5){if(d[(y*w+x)*4+3]>100)guideCheckpointsRef.push({x,y});}} }
+        
+        function resetCanvas() { 
+            state.feedback=null; state.hasError=false; state.strokes=[]; state.pointHistory=[]; state.isSpeedOver=false;
+            
+            clearTimeout(stopTimer); clearInterval(stopWarningInterval); state.isStopWarningActive = false;
+            state.hasSpeedOverThisTurn = false; state.isWarningActive = false;
+            els.noticeOverlay.classList.add('hidden'); els.noticeOverlay.classList.remove('flex');
+            document.body.classList.remove('alert-bg');
+            
+            if (!stopVoice.paused) { stopVoice.pause(); stopVoice.currentTime = 0; }
+            if (!warnVoice.paused) { warnVoice.pause(); warnVoice.currentTime = 0; }
+
+            updateUI(); 
+            
+            const w = els.drawingCanvas.width; const h = els.drawingCanvas.height;
+            ctx.draw.clearRect(0,0,w,h); ctx.feedback.clearRect(0,0,w,h); 
+
+            drawGuide(); startHotaruCycle(); 
+        }
+
+        function getCoordinates(e) { const r=els.drawingCanvas.getBoundingClientRect(), t=e.touches?e.touches[0]:e; return {x:(t.clientX-r.left)*(els.drawingCanvas.width/r.width), y:(t.clientY-r.top)*(els.drawingCanvas.height/r.height)}; }
+        function checkBounds(x,y) { const w = els.drawingCanvas.width; const h = els.drawingCanvas.height; if(x<12||x>w-12||y<12||y>h-12){ if(!state.hasError){state.hasError=true;updateUI();} if(Date.now()-alertThrottleRef>300){playSound('alert');alertThrottleRef=Date.now();} return true; } return false; }
+        
+        function handleStart(e) { 
+            if(state.feedback || state.isWarningActive) return; 
+            e.preventDefault(); const p=getCoordinates(e); 
+            // 左半分から書くように促す
+            if ((state.writeMode === 'double' || (state.writeMode === 'single' && state.selectedChar.length > 1)) && state.strokes.length === 0 && p.x > els.drawingCanvas.width / 2) { playSound('warn'); return; } 
+            
+            state.strokes.push([p]); checkBounds(p.x,p.y); state.isDrawing=true; state.isSpeedOver=false;
+            state.pointHistory = [{x: p.x, y: p.y, t: Date.now()}]; state.accumulatedDist = 0; 
+            const lw = STROKE_WIDTH_BASE * (state.charSize/5);
+            ctx.draw.beginPath(); ctx.draw.moveTo(p.x,p.y); ctx.draw.lineCap='round'; ctx.draw.lineJoin='round'; ctx.draw.lineWidth=lw; ctx.draw.strokeStyle='#333'; 
+            resetStopTimer();
+        }
+        
+        function handleMove(e) { 
+            if(!state.isDrawing || state.feedback || state.isWarningActive) return; 
+            e.preventDefault(); const p=getCoordinates(e); 
+            state.strokes[state.strokes.length-1].push(p); checkBounds(p.x,p.y); 
+
+            const now = Date.now();
+            if (state.isSpeedLimitOn && !state.isSpeedOver) {
+                state.pointHistory.push({x: p.x, y: p.y, t: now});
+                state.pointHistory = state.pointHistory.filter(pt => now - pt.t < 150);
+                
+                if (state.pointHistory.length > 2) {
+                    const oldest = state.pointHistory[0]; const dist = Math.hypot(p.x - oldest.x, p.y - oldest.y); const timeSec = (now - oldest.t) / 1000;
+                    if (timeSec > 0) {
+                        const speed = dist / CANVAS_BASE_SIZE / timeSec; 
+                        const limitSpeed = (state.speedLimit / 40) * 1.5; 
+                        
+                        if (speed > limitSpeed) {
+                            state.isSpeedOver = true; state.hasSpeedOverThisTurn = true; state.isWarningActive = true; 
+                            if (!stopVoice.paused) { stopVoice.pause(); stopVoice.currentTime = 0; }
+                            playSound('siren'); document.body.classList.add('alert-bg');
+                            els.mainSpeedSign.classList.remove('alert-flash'); void els.mainSpeedSign.offsetWidth; els.mainSpeedSign.classList.add('alert-flash');
+                            
+                            state.isDrawing = false; state.strokes.pop(); redrawCanvasFromStrokes(); state.isSpeedOver = false;
+                            clearTimeout(stopTimer); clearInterval(stopWarningInterval); state.isStopWarningActive = false;
+
+                            setTimeout(() => {
+                                els.noticeOverlay.classList.remove('hidden'); els.noticeOverlay.classList.add('flex'); els.noticeOverlay.dataset.canClose = "false";
+                                if (state.soundSettings.voiceFast) { warnVoice.currentTime = 0; warnVoice.play().catch(e => log(e)); }
+                                setTimeout(() => { els.noticeOverlay.dataset.canClose = "true"; }, 2000);
+                            }, 500);
+                            return; 
+                        }
+                    }
+                }
+            }
+            
+            const currentStroke = state.strokes[state.strokes.length-1];
+            if (currentStroke.length >= 2) {
+                const prevPt = currentStroke[currentStroke.length-2];
+                const moveDist = Math.hypot(p.x - prevPt.x, p.y - prevPt.y);
+                state.accumulatedDist += moveDist;
+                if (state.accumulatedDist > 5) { state.accumulatedDist = 0; resetStopTimer(); }
+            } else { resetStopTimer(); }
+
+            const lastStroke = state.strokes[state.strokes.length-1];
+            if(lastStroke.length >= 2) { 
+                const prev = lastStroke[lastStroke.length-2]; 
+                const lw = STROKE_WIDTH_BASE * (state.charSize/5);
+                ctx.draw.globalCompositeOperation = 'source-over'; ctx.draw.beginPath(); ctx.draw.moveTo(prev.x, prev.y); ctx.draw.lineTo(p.x, p.y); 
+                ctx.draw.strokeStyle = '#333'; ctx.draw.lineWidth = lw; ctx.draw.stroke(); 
+            } 
+        }
+        
+        function handleEnd() { 
+            if(!state.isDrawing || state.isWarningActive) return;
+            state.isDrawing=false; 
+            clearTimeout(stopTimer); clearInterval(stopWarningInterval); state.isStopWarningActive = false;
+            if (!stopVoice.paused) { stopVoice.pause(); stopVoice.currentTime = 0; }
+            if(state.isSpeedOver) { state.strokes.pop(); redrawCanvasFromStrokes(); state.isSpeedOver = false; }
+        }
+
+        function redrawCanvasFromStrokes() {
+            const w = els.drawingCanvas.width; const h = els.drawingCanvas.height;
+            ctx.draw.clearRect(0,0,w,h);
+            const lw = STROKE_WIDTH_BASE * (state.charSize/5);
+            ctx.draw.lineCap='round'; ctx.draw.lineJoin='round'; ctx.draw.lineWidth=lw; ctx.draw.strokeStyle='#333'; 
+            state.strokes.forEach(stroke => {
+                if(stroke.length < 2) return;
+                ctx.draw.beginPath(); ctx.draw.moveTo(stroke[0].x, stroke[0].y);
+                for(let i=1; i<stroke.length; i++) ctx.draw.lineTo(stroke[i].x, stroke[i].y);
+                ctx.draw.stroke();
+            });
+        }
+
+        function triggerStopWarning() {
+            playSound('horn');
+            if (state.soundSettings.voiceStop && stopVoice.paused) { stopVoice.currentTime = 0; stopVoice.play().catch(e => log(e)); }
+            els.hornFlashOverlay.style.transitionDuration = '100ms'; els.hornFlashOverlay.style.opacity = '0.4';
+            setTimeout(() => { els.hornFlashOverlay.style.transitionDuration = '400ms'; els.hornFlashOverlay.style.opacity = '0'; }, 100);
+        }
+
+        function resetStopTimer() {
+            clearTimeout(stopTimer); clearInterval(stopWarningInterval);
+            if(!state.isDrawing || !state.isSpeedLimitOn || state.isWarningActive) {
+                state.isStopWarningActive = false;
+                if (!stopVoice.paused) { stopVoice.pause(); stopVoice.currentTime = 0; }
+                return;
+            }
+            const waitTime = state.isStopWarningActive ? 500 : 1500;
+            if (state.isStopWarningActive) { if (!stopVoice.paused) { stopVoice.pause(); stopVoice.currentTime = 0; } }
+            stopTimer = setTimeout(() => { state.isStopWarningActive = true; triggerStopWarning(); stopWarningInterval = setInterval(() => { triggerStopWarning(); }, 600); }, waitTime);
+        }
+        
+        // ★形状・画数判定用ヘルパー関数
+        function performShapeCheck(strokes, targetChar, allPts) {
+            const targetVec = VECTOR_DATA[targetChar];
+            const targetCount = STROKE_COUNTS[targetChar];
+            const userCount = strokes.length;
+            if (!targetVec || allPts.length < 10) return { ok: true }; 
+
+            const shapeCheck = checkDakutenHandakuten(targetChar, strokes);
+            if (!shapeCheck.ok) return { ok: false, msg: shapeCheck.msg };
+
+            const enemies = CONFUSING_PAIRS[targetChar];
+            if (enemies) {
+                for (const enemyChar of enemies) {
+                    const enemyVec = VECTOR_DATA[enemyChar];
+                    if (enemyVec) {
+                        const enemyScore = calculateVectorScore(enemyVec, allPts);
+                        const vScore = calculateVectorScore(targetVec, allPts);
+                        const isDakuPair = ('ぱぴぷぺぽ'.includes(targetChar) && 'ばびぶべぼ'.includes(enemyChar)) || ('ばびぶべぼ'.includes(targetChar) && 'ぱぴぷぺぽ'.includes(enemyChar));
+                        if (enemyScore >= vScore) {
+                            if (isDakuPair) {
+                                const enemyCount = STROKE_COUNTS[enemyChar];
+                                if (userCount === targetCount && userCount !== enemyCount) continue;
+                                if (userCount === enemyCount) return { ok: false, msg: "てんてん と まる を まちがえてない？" };
+                            } else {
+                                return { ok: false, msg: `「${enemyChar}」に なってない？` };
+                            }
+                        }
+                    }
+                }
+            }
+            if (targetCount) {
+                const isDakutenOrHandakuten = 'がぎぐげござじずぜぞだぢづでどばびぶべぼぱぴぷぺぽ'.includes(targetChar) || 'ガギグゲゴザジズゼゾダヂヅデドバビブベボパピプペポ'.includes(targetChar);
+                if (isDakutenOrHandakuten) {
+                    if (userCount !== targetCount) return { ok: false, msg: "かくすう が ちがうよ" };
+                } else {
+                    if (targetCount === 1 && userCount > 1) return { ok: false, msg: "さあ、れんしゅう れんしゅう！" };
+                    else if (Math.abs(userCount - targetCount) > 1) return { ok: false, msg: "さあ、れんしゅう れんしゅう！" };
+                }
+            }
+            return { ok: true };
+        }
+
+        function evaluate() {
+            const w = els.drawingCanvas.width; const h = els.drawingCanvas.height;
+            const allPoints = state.strokes.flat(); const uD=ctx.draw.getImageData(0,0,w,h).data; const gD=ctx.guide.getImageData(0,0,w,h).data; const fD=ctx.feedback.createImageData(w,h);
+            let pass=0; if(guideCheckpointsRef.length===0){ state.feedback={score:0,message:"なぞってみよう！",stars:0}; updateUI(); return; }
+            guideCheckpointsRef.forEach(p=>{ if(uD[(p.y*w+p.x)*4+3]>50) pass++; }); const acc = pass/guideCheckpointsRef.length;
+            let skeletonCovered = 0; for (const sp of state.targetSkeleton) { const idx = (Math.floor(sp.y) * w + Math.floor(sp.x)) * 4; if (uD[idx+3] > 20) skeletonCovered++; }
+            const skeletonCoverRate = state.targetSkeleton.length > 0 ? skeletonCovered / state.targetSkeleton.length : 0; const coverPercent = Math.round(skeletonCoverRate * 100);
+            let errPx=0, totPx=0; for(let i=0;i<uD.length;i+=4){ if(uD[i+3]>50){ totPx++; if(gD[i+3]<20) errPx++; else{ fD.data[i]=255;fD.data[i+1]=100;fD.data[i+2]=100;fD.data[i+3]=200; } } }
+            ctx.feedback.putImageData(fD,0,0);
+            let msg="", isWrong=false; 
+            
+            // 全体の長さチェック
+            let lengthScore = 0; let coverageScore = 0; let userTotalLength = 0; let targetTotalLength = state.targetSkeleton.length * 2.2; 
+            for (const stroke of state.strokes) { for (let i = 1; i < stroke.length; i++) userTotalLength += Math.hypot(stroke[i].x - stroke[i-1].x, stroke[i].y - stroke[i-1].y); }
+            if (targetTotalLength > 0) {
+                const ratio = userTotalLength / targetTotalLength;
+                if (targetTotalLength < 300) { if (ratio >= 0.9 && ratio <= 1.1) lengthScore = 100; else if ((ratio >= 0.7 && ratio < 0.9) || (ratio > 1.1 && ratio <= 1.3)) lengthScore = 50; else if ((ratio >= 0.5 && ratio < 0.7) || (ratio > 1.3 && ratio <= 1.5)) lengthScore = 25; else lengthScore = 0; } 
+                else { if (ratio >= 0.8 && ratio <= 1.2) lengthScore = 100; else if ((ratio >= 0.6 && ratio < 0.8) || (ratio > 1.2 && ratio <= 1.4)) lengthScore = 50; else if ((ratio >= 0.4 && ratio < 0.6) || (ratio > 1.4 && ratio <= 1.6)) lengthScore = 25; else lengthScore = 0; }
+                if (ratio >= 2.0) { msg = "ぬりつぶさないで！"; isWrong = true; lengthScore = 0; } else if (ratio <= 0.20) { msg = "もっと かいて！"; isWrong = true; lengthScore = 0; } else if (lengthScore === 0) { msg = "さあ、れんしゅう れんしゅう！"; }
+            }
+            if (coverPercent >= 85) coverageScore = 100; else if (coverPercent >= 70) coverageScore = 50; else if (coverPercent >= 50) coverageScore = 25; else coverageScore = 0;
+            if (coverPercent <= 10) { coverageScore = 0; isWrong = true; if(!msg) msg = "もっと ていねいに なぞろう！"; }
+            if (coverageScore === 0 && !isWrong) { if(!msg) msg = "もっと ていねいに なぞろう！"; }
+            
+            // ★形状と画数のチェック（1文字/2文字対応）
+            if (allPoints.length > 20) {
+                if (state.writeMode === 'single') {
+                    const shapeRes = performShapeCheck(state.strokes, state.selectedChar, allPoints);
+                    if (!shapeRes.ok) { isWrong = true; msg = shapeRes.msg; lengthScore = 0; coverageScore = 0; }
+                } else {
+                    // 2文字モード時の左右分割チェック
+                    const leftStrokes = state.strokes.filter(s => s[0].x < w / 2);
+                    const rightStrokes = state.strokes.filter(s => s[0].x >= w / 2);
+                    const leftPoints = leftStrokes.flat();
+                    const rightPoints = rightStrokes.flat();
+
+                    const resL = performShapeCheck(leftStrokes, state.selectedWord[0], leftPoints);
+                    const resR = performShapeCheck(rightStrokes, state.selectedWord[1], rightPoints);
+
+                    if (leftStrokes.length === 0) { isWrong = true; msg = "ひだり も かいてね！"; lengthScore = 0; coverageScore = 0; }
+                    else if (rightStrokes.length === 0) { isWrong = true; msg = "みぎ も かいてね！"; lengthScore = 0; coverageScore = 0; }
+                    else if (!resL.ok && !resR.ok) { isWrong = true; msg = "どっちも もうすこし！"; lengthScore = 0; coverageScore = 0; } 
+                    else if (!resL.ok) { isWrong = true; msg = "ひだり: " + resL.msg; lengthScore = 0; coverageScore = 0; } 
+                    else if (!resR.ok) { isWrong = true; msg = "みぎ: " + resR.msg; lengthScore = 0; coverageScore = 0; }
+                }
+            }
+
+            let totalScore = lengthScore + coverageScore; let stars = 0;
+            if (totalScore >= 200) stars = 3; else if (totalScore >= 100) stars = 2; else if (totalScore >= 25) stars = 1; else stars = 0;
+
+            if (state.hasSpeedOverThisTurn) { if (stars >= 2) stars = 1; else stars = 0; msg = "ゆっくり、ていねいにかこう！"; }
+
+            if(totPx<100) { msg="なぞってみよう！"; playSound('btn'); } else if (isWrong || stars === 0) { stars = 0; if(!msg) msg = "さあ、れんしゅう れんしゅう！"; playSound('fail'); } else { if(!msg) { if (stars === 3) { msg="すごい！ はなまる だね！"; playSound('success'); } else if (stars === 2) { msg="じょうず！ そのちょうし！"; playSound('success'); } else { msg="さあ、れんしゅう れんしゅう！"; playSound('btn'); } } else { if (stars >= 2) playSound('success'); else playSound('btn'); } }
+            
+            state.feedback={score:totalScore, message:msg, stars};
+            els.saveStatus.textContent = ''; // ★評価のたびにメッセージをいったん消去する
+            if(totPx>0 && stars>0 && state.writeMode === 'single') saveScore(stars); // ★1文字モードのときだけ記録
+            updateUI();
+        }
+
+        // ==========================================
+        // UI更新・グリッド・設定描画
+        // ==========================================
+        function renderSoundSettings() {
+            els.soundOptionsList.innerHTML = '';
+            soundOptions.forEach(opt => {
+                const li = document.createElement('li'); li.className = "flex items-center justify-between bg-gray-50 p-3 rounded-2xl border border-gray-100";
+                const leftDiv = document.createElement('div'); leftDiv.className = "flex items-center gap-3";
+                const testBtn = document.createElement('button'); testBtn.className = "w-10 h-10 rounded-full bg-white shadow-sm border border-gray-200 flex items-center justify-center text-lg hover:bg-gray-100 transform active:scale-95 transition-all shrink-0";
+                testBtn.innerHTML = opt.icon;
+                testBtn.onclick = () => { if (opt.type === 'synth') { playSound(opt.id, true); } else if (opt.type === 'audio' && opt.audioObj) { opt.audioObj.currentTime = 0; opt.audioObj.play().catch(e => log(e)); } };
+                leftDiv.appendChild(testBtn);
+                const label = document.createElement('span'); label.className = "font-bold text-gray-700 text-sm"; label.textContent = opt.label; leftDiv.appendChild(label); li.appendChild(leftDiv);
+                
+                const toggleLabel = document.createElement('label'); toggleLabel.className = "flex items-center cursor-pointer";
+                const relativeDiv = document.createElement('div'); relativeDiv.className = "relative";
+                const cb = document.createElement('input'); cb.type = "checkbox"; cb.className = "sr-only sound-toggle"; cb.checked = state.soundSettings[opt.id];
+                cb.onchange = (e) => { playSound('btn', true); state.soundSettings[opt.id] = e.target.checked; saveAppSettings(); };
+                const bg = document.createElement('div'); bg.className = "block bg-gray-300 w-12 h-7 rounded-full toggle-bg transition-colors";
+                const dot = document.createElement('div'); dot.className = "absolute left-1 top-1 bg-white w-5 h-5 rounded-full transition-transform toggle-dot shadow-sm";
+                relativeDiv.appendChild(cb); relativeDiv.appendChild(bg); relativeDiv.appendChild(dot); toggleLabel.appendChild(relativeDiv); li.appendChild(toggleLabel);
+                els.soundOptionsList.appendChild(li);
+            });
+        }
+
+        function setAllSounds(isOn) { playSound('btn', true); Object.keys(state.soundSettings).forEach(key => { state.soundSettings[key] = isOn; }); saveAppSettings(); renderSoundSettings(); }
+
+        // ★おすすめワードの編集用UI更新
+        function updatePresetEditorUI() {
+            els.presetEditorInput1.textContent = state.presetEditor.chars[0] || '';
+            els.presetEditorInput2.textContent = state.presetEditor.chars[1] || '';
+
+            if (state.presetEditor.chars.length === 0) {
+                els.presetEditorInput1.className = "w-14 h-14 bg-white border-2 border-indigo-300 rounded-xl flex items-center justify-center text-2xl font-bold text-indigo-700 shadow-inner";
+                els.presetEditorInput2.className = "w-14 h-14 bg-white border-2 border-gray-300 rounded-xl flex items-center justify-center text-2xl font-bold text-gray-400 shadow-inner";
+                els.btnAddPresetWord.disabled = true; els.btnAddPresetWord.classList.add('opacity-50', 'cursor-not-allowed');
+            } else if (state.presetEditor.chars.length === 1) {
+                els.presetEditorInput1.className = "w-14 h-14 bg-indigo-100 border-2 border-indigo-400 rounded-xl flex items-center justify-center text-2xl font-bold text-indigo-700 shadow-inner";
+                els.presetEditorInput2.className = "w-14 h-14 bg-white border-2 border-indigo-300 rounded-xl flex items-center justify-center text-2xl font-bold text-indigo-700 shadow-inner";
+                els.btnAddPresetWord.disabled = true; els.btnAddPresetWord.classList.add('opacity-50', 'cursor-not-allowed');
+            } else {
+                els.presetEditorInput1.className = "w-14 h-14 bg-indigo-100 border-2 border-indigo-400 rounded-xl flex items-center justify-center text-2xl font-bold text-indigo-700 shadow-inner";
+                els.presetEditorInput2.className = "w-14 h-14 bg-indigo-100 border-2 border-indigo-400 rounded-xl flex items-center justify-center text-2xl font-bold text-indigo-700 shadow-inner";
+                els.btnAddPresetWord.disabled = false; els.btnAddPresetWord.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+
+            const setTabActive = (btn, active) => { if(active) btn.className = "flex-1 py-1.5 rounded-lg font-bold text-xs transition-all bg-white text-indigo-600 shadow-sm"; else btn.className = "flex-1 py-1.5 rounded-lg font-bold text-xs transition-all text-gray-500 hover:bg-white/60 border border-transparent"; };
+            setTabActive(els.tabPresetHiragana, state.presetEditor.mode === 'hiragana');
+            setTabActive(els.tabPresetKatakana, state.presetEditor.mode === 'katakana');
+            setTabActive(els.tabPresetNumber, state.presetEditor.mode === 'number');
+
+            if(state.presetEditor.mode === 'number') { els.presetDakuonToggleArea.classList.add('invisible'); } 
+            else { els.presetDakuonToggleArea.classList.remove('invisible'); els.presetToggleDakuonBtn.className=`px-3 py-1 rounded-lg font-bold text-xs flex items-center justify-center gap-1 transition-all border ${state.presetEditor.showDakuon?'bg-indigo-100 text-indigo-700 border-indigo-300':'bg-white text-gray-600 border-gray-200 shadow-sm'}`; els.presetDakuonBtnText.textContent=state.presetEditor.showDakuon?'てんてん・まる':'ふつうのもじ'; }
+        }
+
+        // ★おすすめワードの登録済みリスト描画
+        function renderPresetEditorList() {
+            els.presetEditorList.innerHTML = '';
+            if (state.presetWords.length === 0) {
+                els.presetEditorList.innerHTML = '<span class="text-xs text-emerald-600">おすすめワードが ありません</span>';
+                return;
+            }
+            state.presetWords.forEach((word, index) => {
+                const tag = document.createElement('div');
+                tag.className = "bg-white border border-emerald-200 text-emerald-700 font-bold py-1 pl-3 pr-1 rounded-lg shadow-sm flex items-center gap-2";
+                const span = document.createElement('span'); span.textContent = word;
+                const btn = document.createElement('button');
+                btn.className = "w-6 h-6 rounded-md bg-gray-100 hover:bg-red-100 text-gray-500 hover:text-red-500 flex items-center justify-center transition-colors";
+                btn.innerHTML = '✖';
+                btn.onclick = () => {
+                    playSound('btn');
+                    state.presetWords.splice(index, 1);
+                    saveAppSettings();
+                    renderPresetEditorList();
+                    renderGrid(); // メインのリストも更新
+                };
+                tag.appendChild(span); tag.appendChild(btn);
+                els.presetEditorList.appendChild(tag);
+            });
+        }
+
+        // ★おすすめワード入力用の文字盤描画
+        function renderPresetKeyboard() {
+            let rows;
+            if (state.presetEditor.mode === 'number') rows = NUMBER_ROWS; else if (state.presetEditor.mode === 'katakana') rows = state.presetEditor.showDakuon ? KATAKANA_DAKUON_ROWS : KATAKANA_ROWS; else rows = state.presetEditor.showDakuon ? DAKUON_ROWS : HIRAGANA_ROWS;
+            els.presetEditorKeyboard.innerHTML = '';
+            rows.flat().forEach(c => {
+                if (!c) { els.presetEditorKeyboard.appendChild(document.createElement('div')); return; }
+                const b = document.createElement('button');
+                b.className = "aspect-square rounded-lg text-lg font-bold bg-white border border-gray-200 text-gray-700 hover:bg-indigo-50 active:scale-95 transition-all shadow-sm flex items-center justify-center";
+                b.textContent = c;
+                b.onclick = () => { 
+                    playSound('btn'); 
+                    if(state.presetEditor.chars.length < 2) { 
+                        state.presetEditor.chars.push(c); 
+                        updatePresetEditorUI(); 
+                    } 
+                };
+                els.presetEditorKeyboard.appendChild(b);
+            });
+        }
+
+        // 2文字入力枠の表示更新 (メイン画面用)
+        function updateDoubleInputUI() {
+            els.doubleInput1.textContent = doubleInputChars[0] || '';
+            els.doubleInput2.textContent = doubleInputChars[1] || '';
+            
+            if (doubleInputChars.length === 0) {
+                els.doubleInput1.className = "w-16 h-16 bg-white border-2 border-indigo-300 rounded-xl flex items-center justify-center text-3xl font-bold text-indigo-700 shadow-inner";
+                els.doubleInput2.className = "w-16 h-16 bg-white border-2 border-gray-300 rounded-xl flex items-center justify-center text-3xl font-bold text-gray-400 shadow-inner";
+                els.btnStartCustomDouble.disabled = true; els.btnStartCustomDouble.classList.add('opacity-50', 'cursor-not-allowed');
+            } else if (doubleInputChars.length === 1) {
+                els.doubleInput1.className = "w-16 h-16 bg-indigo-100 border-2 border-indigo-400 rounded-xl flex items-center justify-center text-3xl font-bold text-indigo-700 shadow-inner";
+                els.doubleInput2.className = "w-16 h-16 bg-white border-2 border-indigo-300 rounded-xl flex items-center justify-center text-3xl font-bold text-indigo-700 shadow-inner";
+                els.btnStartCustomDouble.disabled = true; els.btnStartCustomDouble.classList.add('opacity-50', 'cursor-not-allowed');
+            } else {
+                els.doubleInput1.className = "w-16 h-16 bg-indigo-100 border-2 border-indigo-400 rounded-xl flex items-center justify-center text-3xl font-bold text-indigo-700 shadow-inner";
+                els.doubleInput2.className = "w-16 h-16 bg-indigo-100 border-2 border-indigo-400 rounded-xl flex items-center justify-center text-3xl font-bold text-indigo-700 shadow-inner";
+                els.btnStartCustomDouble.disabled = false; els.btnStartCustomDouble.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+        }
+
+        // モーダル内のタブ切り替え
+        function updateSelectorUI() {
+            const setTabActive = (btn, active) => { if(active) btn.className = "flex-1 min-w-[70px] py-2.5 rounded-xl font-bold text-sm transition-all bg-white text-indigo-600 shadow-sm shrink-0"; else btn.className = "flex-1 min-w-[70px] py-2.5 rounded-xl font-bold text-sm transition-all text-gray-500 hover:bg-white/60 shrink-0 border border-transparent"; };
+            
+            setTabActive(els.tabModeSingle, state.selectorTab === 'single');
+            setTabActive(els.tabModeDouble, state.selectorTab === 'double');
+            setTabActive(els.tabModePreset, state.selectorTab === 'preset');
+
+            if (state.selectorTab === 'single') {
+                els.doubleInputArea.classList.add('hidden'); els.doubleInputArea.classList.remove('flex');
+                els.keyboardArea.classList.remove('hidden'); els.keyboardArea.classList.add('flex');
+                els.presetArea.classList.add('hidden'); els.presetArea.classList.remove('flex');
+            } else if (state.selectorTab === 'double') {
+                els.doubleInputArea.classList.remove('hidden'); els.doubleInputArea.classList.add('flex');
+                els.keyboardArea.classList.remove('hidden'); els.keyboardArea.classList.add('flex');
+                els.presetArea.classList.add('hidden'); els.presetArea.classList.remove('flex');
+                updateDoubleInputUI();
+            } else if (state.selectorTab === 'preset') {
+                els.doubleInputArea.classList.add('hidden'); els.doubleInputArea.classList.remove('flex');
+                els.keyboardArea.classList.add('hidden'); els.keyboardArea.classList.remove('flex');
+                els.presetArea.classList.remove('hidden'); els.presetArea.classList.add('flex');
+            }
+
+            setTabActive(els.tabTypeHiragana, state.charMode === 'hiragana');
+            setTabActive(els.tabTypeKatakana, state.charMode === 'katakana');
+            setTabActive(els.tabTypeNumber, state.charMode === 'number');
+
+            if(state.charMode === 'number') { els.dakuonToggleArea.classList.add('invisible'); } 
+            else { els.dakuonToggleArea.classList.remove('invisible'); els.toggleDakuonBtn.className=`px-4 py-1.5 rounded-xl font-bold text-sm flex items-center justify-center gap-1 transition-all border ${state.showDakuon?'bg-indigo-100 text-indigo-700 border-indigo-300':'bg-white text-gray-600 border-gray-200 shadow-sm'}`; els.dakuonBtnText.textContent=state.showDakuon?'てんてん・まる':'ふつうのもじ'; }
+        }
+
+        function updateUI() {
+            const s = 150 + (state.charSize - 1) * 20;
+            const b = s * 1.2;
+            const targetW = state.writeMode === 'double' ? Math.floor(b * 2 + 40) : 400;
+
+            if (els.drawingCanvas.width !== targetW) {
+                els.gridCanvas.width = targetW; els.guideCanvas.width = targetW; els.drawingCanvas.width = targetW; els.feedbackCanvas.width = targetW;
+                if (state.writeMode === 'double') {
+                    els.canvasWrapper.style.width = `min(95vw, ${targetW + 40}px)`;
+                    els.canvasWrapper.style.height = 'auto';
+                    els.canvasWrapper.style.aspectRatio = `${targetW} / 400`;
+                } else {
+                    els.canvasWrapper.style.width = 'min(90vw, 420px)';
+                    els.canvasWrapper.style.height = 'min(90vw, 420px)';
+                    els.canvasWrapper.style.aspectRatio = '1 / 1';
+                }
+            }
+
+            if (state.hasError) els.canvasWrapper.classList.add('border-red-500','ring-4','ring-red-200'); else els.canvasWrapper.classList.remove('border-red-500','ring-4','ring-red-200');
+            if (state.feedback) { els.submitBtn.classList.add('hidden'); els.retryBtn.classList.remove('hidden'); els.eraseBtn.disabled=true; els.eraseBtn.classList.add('opacity-50','cursor-not-allowed'); els.feedbackArea.classList.remove('hidden'); els.feedbackMessage.textContent=state.feedback.message; els.feedbackStars.innerHTML=''; for(let i=0;i<3;i++)els.feedbackStars.innerHTML+=`<svg class="w-8 h-8 ${i<state.feedback.stars?'text-yellow-400 fill-yellow-400':'text-gray-200'}" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`; }
+            else { els.submitBtn.classList.remove('hidden'); els.retryBtn.classList.add('hidden'); els.eraseBtn.disabled=false; els.eraseBtn.classList.remove('opacity-50','cursor-not-allowed'); els.feedbackArea.classList.add('hidden'); els.saveStatus.textContent=''; }
+            
+            els.charSizeDisplay.textContent=state.charSize; 
+            els.visibleDurationDisplay.textContent = state.visibleDuration + 'びょう';
+            if (state.isOneTimeFlash) { els.hiddenDurationDisplay.textContent = 'ずっと'; els.hiddenDurationSlider.disabled = true; els.hiddenDurationSlider.classList.add('opacity-30', 'cursor-not-allowed'); } 
+            else { els.hiddenDurationDisplay.textContent = state.hiddenDuration + 'びょう'; els.hiddenDurationSlider.disabled = false; els.hiddenDurationSlider.classList.remove('opacity-30', 'cursor-not-allowed'); }
+            els.visibleDurationSlider.value = getDurationIndex(state.visibleDuration); els.hiddenDurationSlider.value = getDurationIndex(state.hiddenDuration);
+            els.hotaruIndicator.className=state.isHotaruMode?'w-3 h-3 rounded-full bg-yellow-400 animate-ping':'w-3 h-3 rounded-full bg-gray-300';
+            els.hotaruSwitchBtn.className=state.isHotaruMode?'w-14 h-8 rounded-full p-1 transition-colors duration-300 flex items-center bg-yellow-400 justify-end':'w-14 h-8 rounded-full p-1 transition-colors duration-300 flex items-center bg-gray-300 justify-start';
+            els.oneTimeFlashBtn.className = state.isOneTimeFlash ? 'w-12 h-6 rounded-full p-1 transition-colors duration-300 flex items-center bg-yellow-400 justify-end' : 'w-12 h-6 rounded-full p-1 transition-colors duration-300 flex items-center bg-gray-300 justify-start';
+            if(state.isHotaruMode)els.hotaruControls.classList.remove('hidden'); else els.hotaruControls.classList.add('hidden');
+
+            els.speedLimitSwitchBtn.className=state.isSpeedLimitOn?'w-14 h-8 rounded-full p-1 transition-colors duration-300 flex items-center bg-blue-500 justify-end':'w-14 h-8 rounded-full p-1 transition-colors duration-300 flex items-center bg-gray-300 justify-start';
+            if(state.isSpeedLimitOn){ els.speedLimitControls.classList.remove('hidden'); els.speedLimitControls.classList.add('flex'); els.mainSpeedSign.classList.remove('hidden'); els.mainSpeedSignValue.textContent = state.speedLimit; } 
+            else { els.speedLimitControls.classList.add('hidden'); els.speedLimitControls.classList.remove('flex'); els.mainSpeedSign.classList.add('hidden'); }
+            els.speedLimitSlider.value = state.speedLimit; els.speedLimitDisplay.textContent = state.speedLimit;
+            
+            if(state.speedDemoMode === 'auto') { els.tabDemoSpeed.className = "flex-1 py-1.5 rounded-lg font-bold text-xs transition-all bg-white text-blue-600 shadow-sm border border-blue-200"; els.tabManualSpeed.className = "flex-1 py-1.5 rounded-lg font-bold text-xs transition-all text-gray-500 hover:bg-white/50 border border-transparent"; els.manualOverlay.classList.add('hidden'); if(!demoAnimRef) animateSpeedDemo(); } 
+            else { els.tabDemoSpeed.className = "flex-1 py-1.5 rounded-lg font-bold text-xs transition-all text-gray-500 hover:bg-white/50 border border-transparent"; els.tabManualSpeed.className = "flex-1 py-1.5 rounded-lg font-bold text-xs transition-all bg-white text-blue-600 shadow-sm border border-blue-200"; els.manualOverlay.classList.remove('hidden'); cancelAnimationFrame(demoAnimRef); demoAnimRef = null; drawDemoBase(); }
+        }
+        
+        function renderGrid() {
+            // プリセット単語の描画
+            els.presetWordsList.innerHTML = '';
+            if (state.presetWords.length === 0) {
+                els.presetWordsList.innerHTML = '<span class="text-sm text-emerald-600 font-bold p-2">おすすめワードが ありません</span>';
+            }
+            state.presetWords.forEach(word => {
+                const b = document.createElement('button');
+                b.className = "bg-white border-2 border-emerald-200 text-emerald-700 font-bold py-2 px-4 rounded-xl hover:bg-emerald-50 active:scale-95 transition-all shadow-sm";
+                b.textContent = word;
+                b.onclick = () => { playSound('btn'); state.writeMode = 'double'; state.selectedWord = [word[0], word[1]]; state.isSelectorOpen = false; els.selectorModal.classList.add('hidden'); resetCanvas(); updateUI(); startHotaruCycle(); };
+                els.presetWordsList.appendChild(b);
+            });
+
+            // 共通の文字盤描画
+            let rows;
+            if (state.charMode === 'number') rows = NUMBER_ROWS; else if (state.charMode === 'katakana') rows = state.showDakuon ? KATAKANA_DAKUON_ROWS : KATAKANA_ROWS; else rows = state.showDakuon ? DAKUON_ROWS : HIRAGANA_ROWS;
+            els.charGrid.innerHTML=''; 
+            rows.flat().forEach(c=>{ 
+                if(!c){els.charGrid.appendChild(document.createElement('div'));return;} 
+                const s=state.scores[c], p=s!==undefined, sel=(state.writeMode==='single' && state.selectorTab==='single' && state.selectedChar===c); 
+                const b=document.createElement('button'); 
+                b.className=`aspect-square rounded-2xl text-2xl font-bold relative flex flex-col items-center justify-center shadow-sm border-2 ${sel?'bg-indigo-50 border-indigo-400 text-indigo-700 ring-4 ring-indigo-100 scale-105 z-10':'bg-white border-gray-100 text-gray-700 hover:bg-indigo-50/50 hover:border-indigo-200 transition-all'}`; 
+                b.onclick=()=>{
+                    playSound('btn');
+                    if (state.selectorTab === 'single') {
+                        state.writeMode='single'; state.selectedChar=c; state.isSelectorOpen=false; els.selectorModal.classList.add('hidden'); resetCanvas(); updateUI(); startHotaruCycle();
+                    } else if (state.selectorTab === 'double') {
+                        if(doubleInputChars.length < 2) { doubleInputChars.push(c); updateDoubleInputUI(); }
+                    }
+                }; 
+                const sp=document.createElement('span'); sp.className='mb-2'; sp.textContent=c; b.appendChild(sp); 
+                if(p && state.selectorTab === 'single'){
+                    const d=document.createElement('div');d.className='flex items-center gap-0.5 absolute bottom-1.5 px-1 w-full justify-center';
+                    const sb=document.createElement('span');sb.className='text-[9px] bg-gray-100 text-gray-500 rounded px-1 mr-0.5 font-mono';sb.textContent=s.size;d.appendChild(sb);
+                    const sd=document.createElement('div');sd.className='flex';for(let i=0;i<3;i++)sd.innerHTML+=`<svg class="w-3 h-3 ${i<s.stars?'text-yellow-400 fill-yellow-400 drop-shadow-sm':'text-gray-200'}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;d.appendChild(sd);
+                    if(s.isHotaru)d.innerHTML+='<span class="ml-0.5 text-[10px]">🐝</span>';b.appendChild(d);
+                } 
+                els.charGrid.appendChild(b); 
+            });
+        }
+
+        function drawDemoBase() {
+            ctx.demo.clearRect(0,0,120,120); const demoChar = '7'; const vec = VECTOR_DATA[demoChar];
+            if(vec && vec.length > 0) { ctx.demo.beginPath(); ctx.demo.lineCap = 'round'; ctx.demo.lineJoin = 'round'; ctx.demo.lineWidth = 14; ctx.demo.strokeStyle = '#E2E8F0'; ctx.demo.moveTo(vec[0].x * 120, vec[0].y * 120); for(let i = 1; i < vec.length; i++) ctx.demo.lineTo(vec[i].x * 120, vec[i].y * 120); ctx.demo.stroke(); }
+        }
+
+        function animateSpeedDemo() {
+            if(!state.showSettings || !state.isSpeedLimitOn || state.speedDemoMode !== 'auto') return; drawDemoBase();
+            if(demoPoints.length > 0) {
+                const speedFactor = (state.speedLimit / 40) * 1.5; demoProgress += speedFactor; if(demoProgress >= demoPoints.length + 20) demoProgress = 0; 
+                const endIdx = Math.min(Math.floor(demoProgress), demoPoints.length - 1);
+                if(endIdx > 0) {
+                    ctx.demo.beginPath(); ctx.demo.lineCap='round'; ctx.demo.lineJoin='round'; ctx.demo.lineWidth=6; ctx.demo.strokeStyle='#F472B6'; ctx.demo.moveTo(demoPoints[0].x * 120, demoPoints[0].y * 120); for(let i=1; i<=endIdx; i++) ctx.demo.lineTo(demoPoints[i].x * 120, demoPoints[i].y * 120); ctx.demo.stroke();
+                    ctx.demo.beginPath(); ctx.demo.arc(demoPoints[endIdx].x * 120, demoPoints[endIdx].y * 120, 4, 0, Math.PI*2); ctx.demo.fillStyle='#BE185D'; ctx.demo.fill();
+                }
+            }
+            demoAnimRef = requestAnimationFrame(animateSpeedDemo);
+        }
+
+        let manualPts = []; let manualStartTime = 0; let manualMaxSpeed = 0;
+        els.speedDemoCanvas.addEventListener('mousedown', manualStart); els.speedDemoCanvas.addEventListener('touchstart', manualStart, {passive:false});
+        window.addEventListener('mousemove', manualMove); window.addEventListener('touchmove', manualMove, {passive:false});
+        window.addEventListener('mouseup', manualEnd); window.addEventListener('touchend', manualEnd);
+
+        function manualStart(e) { if(state.speedDemoMode !== 'manual') return; e.preventDefault(); const r = els.speedDemoCanvas.getBoundingClientRect(); const t = e.touches?e.touches[0]:e; const px = t.clientX - r.left; const py = t.clientY - r.top; manualPts = [{x: px, y: py, t: Date.now()}]; manualStartTime = Date.now(); manualMaxSpeed = 0; drawDemoBase(); ctx.demo.beginPath(); ctx.demo.moveTo(px,py); ctx.demo.lineCap='round'; ctx.demo.lineWidth=6; ctx.demo.strokeStyle='#3B82F6'; els.manualOverlay.classList.add('hidden'); }
+        function manualMove(e) { if(state.speedDemoMode !== 'manual' || manualPts.length === 0) return; if(e.target !== els.speedDemoCanvas) return; e.preventDefault(); const r = els.speedDemoCanvas.getBoundingClientRect(); const t = e.touches?e.touches[0]:e; const px = t.clientX - r.left; const py = t.clientY - r.top; const now = Date.now(); manualPts.push({x: px, y: py, t: now}); ctx.demo.lineTo(px, py); ctx.demo.stroke(); let recentPts = manualPts.filter(pt => now - pt.t < 150); if (recentPts.length > 2) { const oldest = recentPts[0]; const dist = Math.hypot(px - oldest.x, py - oldest.y); const timeSec = (now - oldest.t) / 1000; if (timeSec > 0) { const speed = dist / 120 / timeSec; if (speed > manualMaxSpeed) manualMaxSpeed = speed; } } }
+        function manualEnd() { if(state.speedDemoMode !== 'manual' || manualPts.length < 5) { manualPts = []; return; } let newLimit = 50; if (manualMaxSpeed > 0) newLimit = Math.round((manualMaxSpeed / 1.5) * 40); newLimit = Math.max(10, Math.min(80, Math.ceil(newLimit/5)*5)); state.speedLimit = newLimit; playSound('success'); els.manualOverlay.innerHTML = `<span class="text-xs font-bold text-white bg-green-500 px-2 py-1 rounded-full shadow-md">そくど ${newLimit}！</span>`; els.manualOverlay.classList.remove('hidden'); updateUI(); saveAppSettings(); manualPts = []; setTimeout(() => { if(state.speedDemoMode === 'manual') els.manualOverlay.innerHTML = `<span class="text-xs font-bold text-blue-600 bg-white/80 px-2 py-1 rounded-full">なぞってね！</span>`; }, 1500); }
+
+        // ==========================================
+        // 初期化・イベントリスナー
+        // ==========================================
+        function openModal(modalEl, innerEl) { modalEl.classList.remove('hidden'); modalEl.classList.add('flex'); setTimeout(() => { modalEl.classList.remove('opacity-0'); innerEl.classList.remove('scale-95'); }, 10); }
+        function closeModal(modalEl, innerEl) { modalEl.classList.add('opacity-0'); innerEl.classList.add('scale-95'); setTimeout(() => { modalEl.classList.add('hidden'); modalEl.classList.remove('flex'); }, 300); }
+
+        function setupEventListeners() {
+            document.addEventListener('touchstart', unlockAudio, { once: true, passive: true });
+            document.addEventListener('mousedown', unlockAudio, { once: true, passive: true });
+
+            els.openSelectorBtn.onclick=()=>{ playSound('btn'); document.body.classList.remove('alert-bg'); loadScores().then(() => { state.isSelectorOpen=true; doubleInputChars=[]; updateSelectorUI(); els.selectorModal.classList.remove('hidden'); renderGrid(); }); }; 
+            els.closeSelectorBtn.onclick=()=>{playSound('btn');state.isSelectorOpen=false;els.selectorModal.classList.add('hidden');startHotaruCycle();};
+            els.openSettingsBtn.onclick=()=>{ playSound('btn'); document.body.classList.remove('alert-bg'); state.showSettings = !state.showSettings; if(state.showSettings) { els.settingsPanel.classList.remove('hidden'); if(state.isSpeedLimitOn && state.speedDemoMode==='auto') animateSpeedDemo(); } else { els.settingsPanel.classList.add('hidden'); cancelAnimationFrame(demoAnimRef); demoAnimRef=null; startHotaruCycle(); } }; 
+            els.closeSettingsBtn.onclick=()=>{playSound('btn');state.showSettings=false;els.settingsPanel.classList.add('hidden'); cancelAnimationFrame(demoAnimRef); demoAnimRef=null; startHotaruCycle();};
+            
+            els.charSizeSlider.oninput=e=>{state.charSize=parseInt(e.target.value); updateUI(); resetCanvas(); saveAppSettings();}; 
+            els.visibleDurationSlider.oninput=e=>{state.visibleDuration=getDurationSeconds(parseInt(e.target.value)); updateUI(); startHotaruCycle(); saveAppSettings();}; 
+            els.hiddenDurationSlider.oninput=e=>{state.hiddenDuration=getDurationSeconds(parseInt(e.target.value)); updateUI(); saveAppSettings();};
+            els.hotaruSwitchBtn.onclick=()=>{playSound('btn');state.isHotaruMode=!state.isHotaruMode;updateUI();startHotaruCycle(); saveAppSettings();};
+            els.oneTimeFlashBtn.onclick=()=>{playSound('btn');state.isOneTimeFlash = !state.isOneTimeFlash; updateUI(); startHotaruCycle(); saveAppSettings();};
+            
+            els.speedLimitSwitchBtn.onclick=()=>{ playSound('btn'); state.isSpeedLimitOn = !state.isSpeedLimitOn; updateUI(); saveAppSettings(); if (!state.isSpeedLimitOn) { clearTimeout(stopTimer); clearInterval(stopWarningInterval); state.isStopWarningActive = false; } };
+            els.speedLimitSlider.oninput=e=>{ state.speedLimit = parseInt(e.target.value); els.speedLimitDisplay.textContent = state.speedLimit; els.mainSpeedSignValue.textContent = state.speedLimit; saveAppSettings(); };
+            els.tabDemoSpeed.onclick=()=>{ playSound('btn'); state.speedDemoMode = 'auto'; updateUI(); saveAppSettings(); }; els.tabManualSpeed.onclick=()=>{ playSound('btn'); state.speedDemoMode = 'manual'; updateUI(); saveAppSettings(); };
+
+            els.tabModeSingle.onclick = () => { playSound('btn'); state.selectorTab = 'single'; updateSelectorUI(); renderGrid(); };
+            els.tabModeDouble.onclick = () => { playSound('btn'); state.selectorTab = 'double'; updateSelectorUI(); renderGrid(); };
+            els.tabModePreset.onclick = () => { playSound('btn'); state.selectorTab = 'preset'; updateSelectorUI(); renderGrid(); };
+
+            els.tabTypeHiragana.onclick=()=>{playSound('btn'); state.charMode='hiragana'; updateSelectorUI(); renderGrid(); saveAppSettings();}; 
+            els.tabTypeKatakana.onclick=()=>{playSound('btn'); state.charMode='katakana'; updateSelectorUI(); renderGrid(); saveAppSettings();}; 
+            els.tabTypeNumber.onclick=()=>{playSound('btn'); state.charMode='number'; updateSelectorUI(); renderGrid(); saveAppSettings();}; 
+            els.toggleDakuonBtn.onclick=()=>{playSound('btn');state.showDakuon=!state.showDakuon; updateSelectorUI(); renderGrid(); saveAppSettings();};
+            
+            els.btnClearDoubleInput.onclick=()=>{playSound('btn'); doubleInputChars=[]; updateDoubleInputUI();};
+            els.btnStartCustomDouble.onclick=()=>{playSound('success'); state.writeMode='double'; state.selectedWord=[doubleInputChars[0], doubleInputChars[1]]; state.isSelectorOpen=false; els.selectorModal.classList.add('hidden'); resetCanvas(); updateUI(); startHotaruCycle();};
+            
+            const c=els.drawingCanvas; c.addEventListener('mousedown',handleStart);c.addEventListener('mousemove',handleMove);c.addEventListener('mouseup',handleEnd);c.addEventListener('mouseleave',handleEnd); c.addEventListener('touchstart',handleStart,{passive:false});c.addEventListener('touchmove',handleMove,{passive:false});c.addEventListener('touchend',handleEnd);
+            els.eraseBtn.onclick=()=>{playSound('btn');resetCanvas();}; els.submitBtn.onclick=()=>{evaluate();}; els.retryBtn.onclick=()=>{playSound('btn');resetCanvas();};
+
+            // ★音のせっていイベント
+            els.btnAllSoundOn.onclick = () => setAllSounds(true); els.btnAllSoundOff.onclick = () => setAllSounds(false);
+            els.btnOpenSoundSettingsFromMenu.onclick = () => { playSound('btn', true); renderSoundSettings(); openModal(els.soundSettingsModal, els.soundSettingsModalInner); };
+            els.btnOpenSoundSettingsFromInit.onclick = () => { playSound('btn', true); renderSoundSettings(); closeModal(els.soundInitPopup, els.soundInitPopupInner); setTimeout(() => { openModal(els.soundSettingsModal, els.soundSettingsModalInner); }, 300); };
+            els.closeSoundSettingsBtn.onclick = () => { playSound('btn', true); closeModal(els.soundSettingsModal, els.soundSettingsModalInner); };
+            els.btnStartApp.onclick = () => { playSound('btn', true); unlockAudio(); if (els.dontShowPopupCb.checked) { state.showSoundPopupOnStart = false; saveAppSettings(); } closeModal(els.soundInitPopup, els.soundInitPopupInner); };
+
+            // ★おすすめワードのせっていイベント
+            els.btnOpenPresetSettingsFromMenu.onclick = () => { 
+                playSound('btn', true); 
+                renderPresetEditorList(); 
+                renderPresetKeyboard(); 
+                updatePresetEditorUI();
+                openModal(els.presetSettingsModal, els.presetSettingsModalInner); 
+            };
+            els.closePresetSettingsBtn.onclick = () => { playSound('btn', true); closeModal(els.presetSettingsModal, els.presetSettingsModalInner); };
+            
+            els.tabPresetHiragana.onclick=()=>{playSound('btn'); state.presetEditor.mode='hiragana'; updatePresetEditorUI(); renderPresetKeyboard(); }; 
+            els.tabPresetKatakana.onclick=()=>{playSound('btn'); state.presetEditor.mode='katakana'; updatePresetEditorUI(); renderPresetKeyboard(); }; 
+            els.tabPresetNumber.onclick=()=>{playSound('btn'); state.presetEditor.mode='number'; updatePresetEditorUI(); renderPresetKeyboard(); }; 
+            els.presetToggleDakuonBtn.onclick=()=>{playSound('btn');state.presetEditor.showDakuon=!state.presetEditor.showDakuon; updatePresetEditorUI(); renderPresetKeyboard(); };
+            
+            els.btnClearPresetInput.onclick=()=>{playSound('btn'); state.presetEditor.chars=[]; updatePresetEditorUI();};
+            els.btnAddPresetWord.onclick=()=>{
+                const word = state.presetEditor.chars.join('');
+                if(!state.presetWords.includes(word)) {
+                    playSound('success'); 
+                    state.presetWords.push(word);
+                    saveAppSettings();
+                } else {
+                    playSound('fail'); // すでにある場合はエラー音
+                }
+                state.presetEditor.chars=[]; 
+                updatePresetEditorUI(); 
+                renderPresetEditorList();
+                renderGrid(); // メインメニューも更新しておく
+            };
+
+            function closeWarning(e) { e.preventDefault(); e.stopPropagation(); if (els.noticeOverlay.dataset.canClose === "true") { els.noticeOverlay.classList.add('hidden'); els.noticeOverlay.classList.remove('flex'); state.isWarningActive = false; if (!warnVoice.paused) { warnVoice.pause(); warnVoice.currentTime = 0; } } }
+            els.noticeOverlay.addEventListener('mousedown', closeWarning); els.noticeOverlay.addEventListener('touchstart', closeWarning, {passive: false});
+        }
+        
+        async function init() { 
+            log("アプリ初期化中..."); await loadScores(); await loadAppSettings();
+            initializeData(); setupEventListeners(); updateUI(); updateSelectorUI(); resetCanvas(); renderGrid(); startHotaruCycle(); 
+        }
+
+        let appInitialized = false;
+        async function onResume() { if (!appInitialized) return; log("画面復帰: データ再読み込み"); await loadScores(); await loadAppSettings(); updateSelectorUI(); renderGrid(); updateUI(); }
+        window.addEventListener('pageshow', (event) => { if (event.persisted) onResume(); });
+        document.addEventListener('visibilitychange', () => { 
+            if (document.visibilityState === 'visible') { audioUnlocked = false; document.addEventListener('touchstart', unlockAudio, { once: true, passive: true }); document.addEventListener('mousedown', unlockAudio, { once: true, passive: true }); onResume(); } 
+            else { if (!stopVoice.paused) stopVoice.pause(); if (!warnVoice.paused) warnVoice.pause(); if (sharedAudioCtx && sharedAudioCtx.state === 'running') { sharedAudioCtx.suspend(); } }
+        });
+        window.addEventListener('focus', onResume);
+
+        async function startApplication() {
+            const overlay = document.getElementById('loadingOverlay');
+            const message = document.getElementById('loadingMessage');
+            try {
+                message.textContent = 'もじの じゅんびちゅう...';
+                if (document.fonts) {
+                    try {
+                        await withDeadline(Promise.all([
+                            document.fonts.load('1rem "Klee One"'),
+                            document.fonts.load('1rem "Zen Maru Gothic"')
+                        ]), 4000, 'Font loading');
+                    } catch (error) { log('標準フォントで開始します: ' + error.message); }
+                }
+                message.textContent = 'きろくの よみこみちゅう...';
+                await init();
+                appInitialized = true;
+                overlay.style.display = 'none';
+                if (state.showSoundPopupOnStart) openModal(els.soundInitPopup, els.soundInitPopupInner);
+                if (document.fonts) {
+                    const redraw = () => { if (appInitialized) { drawGuide(); drawDemoBase(); } };
+                    document.fonts.ready.then(redraw).catch(error => log(error.message));
+                    document.fonts.addEventListener('loadingdone', redraw);
+                }
+            } catch (error) {
+                console.error('もんじぼたるの起動エラー', error);
+                message.classList.remove('animate-pulse');
+                message.textContent = 'じゅんびが できませんでした';
+                const detail = document.createElement('p');
+                detail.textContent = 'エラー: ' + error.message;
+                detail.style.cssText = 'max-width:90%;overflow-wrap:anywhere;padding:16px;text-align:center';
+                const retry = document.createElement('button');
+                retry.textContent = 'もういちど ひらく';
+                retry.style.cssText = 'padding:12px 24px;background:white;border:2px solid #6366f1;border-radius:12px';
+                retry.addEventListener('click', () => location.reload());
+                overlay.append(detail, retry);
+            }
+        }
+        // The app elements already exist here. Do not wait for window.load,
+        // which also waits for unrelated external fonts, images and audio.
+        startApplication();
+
+    </script>
+</body>
+</html>

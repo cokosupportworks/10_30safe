@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#f8f7f3">
+<meta name="description" content="ひらがな・もじ・あそび。３つのアプリをひとつの場所から。">
+<title>まなびのひろば</title>
+<link rel="stylesheet" href="portal.css">
+<script src="portal.js" defer></script>
+</head>
+<body>
+<header class="header">
+<a class="brand" href="#home" aria-label="まなびのひろば ホーム"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span>まなびのひろば<small>CO KO · LEARNING SPACE</small></span></a>
+<nav aria-label="アプリの切り替え">
+<a href="#home" data-route="home" aria-current="page">ホーム</a>
+<a href="#hiragana" data-route="hiragana"><span class="dot pink"></span>ひらがな</a>
+<a href="#monji" data-route="monji"><span class="dot green"></span>もんじぼたる</a>
+<a href="#scratch" data-route="scratch"><span class="dot orange"></span>Scratch</a>
+</nav>
+</header>
+<main id="home">
+<section class="intro">
+<div><p class="eyebrow"><span></span> じぶんのペースで、たのしく。</p><h1>きょうは、<br>なにを<span class="handline">やってみる？</span></h1><p class="lead">もじにふれる。おとをきく。あそんでみる。<br>すきなアプリをえらんで、はじめよう。</p></div>
+<div class="hero-art" aria-hidden="true"><div class="orbit"></div><span class="spark s1">✦</span><span class="tile t1">あ<span>ひらがな</span></span><span class="tile t2"><svg viewBox="0 0 100 100"><path d="M50 42C15 5 4 64 44 66M50 42C85 5 96 64 56 66" fill="#c8e4b8"/><ellipse cx="50" cy="61" rx="14" ry="24" fill="#4f6e54"/><path d="M37 70Q50 93 63 70" fill="#f6dc78"/><circle cx="50" cy="36" r="13" fill="#4f6e54"/><circle cx="45" cy="34" r="2.5" fill="white"/><circle cx="55" cy="34" r="2.5" fill="white"/><path d="M43 24l-5-9m19 9 5-9" stroke="#4f6e54" stroke-width="3" stroke-linecap="round"/></svg></span><span class="tile t3"><svg viewBox="0 0 100 100"><path d="M25 38 36 22l19 14 16-8 9 21-9 28-32 3-20-20Z" fill="#fff2db" stroke="#a86a36" stroke-width="3" stroke-linejoin="round"/><circle cx="44" cy="51" r="3" fill="#a86a36"/><circle cx="65" cy="49" r="3" fill="#a86a36"/><path d="m50 62 7 0m-4-1v6m-8 2q9 7 17-2" fill="none" stroke="#a86a36" stroke-width="2.5" stroke-linecap="round"/></svg></span><span class="spark s2">✳</span><span class="tiny-circle"></span></div>
+</section>
+<section class="apps" aria-labelledby="apps-title"><div class="section-label"><h2 id="apps-title">アプリをえらぶ</h2><span>３つのまなびとあそび</span></div>
+<div class="cards">
+<a class="card card-pink" href="#hiragana"><div class="card-top"><span class="tag">よむ・きく</span><span class="number">01</span></div><div class="card-art kana" aria-hidden="true"><span>あ</span><span>い</span><span>う</span><i>♪</i></div><div class="card-body"><h3>ひらがな50おん</h3><p>もじをタッチして、おとをきこう。<br>クイズにもチャレンジ。</p><span class="start">はじめる <b>↗</b></span></div></a>
+<a class="card card-green" href="#monji"><div class="card-top"><span class="tag">かく・たどる</span><span class="number">02</span></div><div class="card-art trace" aria-hidden="true"><svg viewBox="0 0 280 130"><path d="M65 50q90-15 100-5M115 23q-17 87 14 82 51-13 36-41-23-24-65 11-26 32-35 15-10-22 43-34" fill="none" stroke="#97b7a1" stroke-width="8" stroke-dasharray="1 15" stroke-linecap="round"/><circle cx="171" cy="43" r="11" fill="#f5df81"/><path d="m191 28 9-9m-6 26h13m-20-30 1-10" stroke="#cfba66" stroke-width="3" stroke-linecap="round"/></svg></div><div class="card-body"><h3>もんじぼたる</h3><p>ひかりをおいかけて、もじをかこう。<br>たのしく、じぶんのペースで。</p><span class="start">はじめる <b>↗</b></span></div></a>
+<a class="card card-orange" href="#scratch"><div class="card-top"><span class="tag">あそぶ・みつける</span><span class="number">03</span></div><div class="card-art blocks" aria-hidden="true"><span>⚑ はじめよう</span><span>10 ほ うごかす</span><span>おとを ならす ♪</span></div><div class="card-body"><h3>Scratchであそぶ</h3><p>おえかき、たいこ、ものがたり。<br>すきなさくひんであそぼう。</p><span class="start">はじめる <b>↗</b></span></div></a>
+</div></section>
+<aside class="hint"><span aria-hidden="true">☀</span><div><strong>いつでも、ここから。</strong><p>アプリをひらいたあとも、上のメニューから切り替えられます。<br>切り替えるとアプリが開き直されます。保存が必要な作業は先に保存してください。</p></div></aside>
+<footer><span class="footer-brand">まなびのひろば</span><span>ちいさな「できた」を、ひとつずつ。</span></footer>
+</main>
+<section id="workspace" hidden aria-label="アプリ画面"><div class="workspace-bar"><div><span id="app-dot" class="dot"></span><h1 id="app-name"></h1></div><div class="tools"><span id="app-status" role="status" aria-live="polite"></span><a id="direct-link" target="_blank" rel="noopener" title="アプリを別タブで開く">別タブ ↗</a><button id="fullscreen" type="button">全画面 ⛶</button></div></div><div id="frame-host"></div><div id="load-help" hidden>表示に時間がかかっています。<button id="retry" type="button">読み直す</button> または「別タブ」から開いてください。</div></section>
+</body>
+</html>
