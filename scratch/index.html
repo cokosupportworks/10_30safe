@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scratch マルチプロジェクト・プレイヤー</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800 flex flex-col justify-between p-4 sm:p-6 md:p-8">
+
+  <main class="w-full max-w-4xl mx-auto my-auto flex flex-col items-center">
+    
+    <!-- タブ切り替えボタン -->
+    <div class="flex flex-wrap justify-center gap-2 mb-4 bg-white/80 backdrop-blur p-1.5 rounded-2xl shadow-sm border border-slate-200" id="tabContainer">
+      <button 
+        onclick="switchProject(0)" 
+        id="tab-btn-0"
+        class="tab-button px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all bg-orange-500 text-white shadow-sm"
+      >
+        🎨 iPad&マウス＆スイッチでお絵かき
+      </button>
+      <button 
+        onclick="switchProject(1)" 
+        id="tab-btn-1"
+        class="tab-button px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all bg-transparent text-slate-600 hover:bg-slate-100"
+      >
+        🥁 和太鼓の達人
+      </button>
+      <button 
+        onclick="switchProject(2)" 
+        id="tab-btn-2"
+        class="tab-button px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all bg-transparent text-slate-600 hover:bg-slate-100"
+      >
+        📖 スーパーまきとくものがたり
+      </button>
+      <button 
+        onclick="switchProject('grid')" 
+        id="tab-btn-grid"
+        class="tab-button px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all bg-transparent text-slate-600 hover:bg-slate-100"
+      >
+        📱 3つ並べて表示
+      </button>
+    </div>
+
+    <!-- 単一プレイヤー表示エリア -->
+    <div id="singleView" class="w-full bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden transition-all">
+      
+      <!-- ヘッダーバー -->
+      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-orange-50 to-amber-50">
+        <div class="flex items-center space-x-3">
+          <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-orange-500 text-white font-bold text-sm shadow-sm">
+            S
+          </span>
+          <div>
+            <h1 id="projectTitle" class="text-base sm:text-lg font-bold text-slate-800 leading-tight">iPad&マウス＆スイッチでお絵かき</h1>
+            <p id="projectIdLabel" class="text-xs text-slate-500 font-mono">ID: 1396983394</p>
+          </div>
+        </div>
+        
+        <!-- Scratch 公式リンクボタン -->
+        <a 
+          id="projectLink"
+          href="https://scratch.mit.edu/projects/1396983394/" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          class="text-xs bg-white hover:bg-slate-50 text-slate-700 font-semibold py-1.5 px-3 rounded-lg border border-slate-200 shadow-sm transition duration-150 ease-in-out flex items-center gap-1.5"
+        >
+          <span>作品ページへ</span>
+          <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+          </svg>
+        </a>
+      </div>
+
+      <!-- Scratch 埋め込みエリア -->
+      <div class="p-4 sm:p-6 bg-slate-900 flex justify-center">
+        <div class="relative w-full max-w-[640px] aspect-[485/402] rounded-xl overflow-hidden shadow-2xl bg-black">
+          <iframe 
+            id="mainPlayerFrame"
+            src="https://scratch.mit.edu/projects/1396983394/embed" 
+            allowtransparency="true" 
+            width="485" 
+            height="402" 
+            frameborder="0" 
+            scrolling="no" 
+            allowfullscreen
+            class="absolute top-0 left-0 w-full h-full border-0"
+          ></iframe>
+        </div>
+      </div>
+
+      <!-- 操作説明 & ヒントフッター -->
+      <div class="px-6 py-4 bg-slate-50 text-xs text-slate-600 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-t border-slate-100">
+        <div class="flex items-center gap-2">
+          <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span>緑の旗を押してプロジェクトを開始</span>
+        </div>
+        <div class="text-slate-400">
+          全画面表示・キーボード操作対応
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 3つ並べて表示するグリッドビュー（初期状態は非表示） -->
+    <div id="gridView" class="w-full hidden grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <!-- カード1 -->
+      <div class="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden flex flex-col">
+        <div class="p-3 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+          <span class="font-bold text-xs text-slate-700" id="gridTitle0">プロジェクト 1</span>
+          <a id="gridLink0" href="#" target="_blank" class="text-[11px] text-orange-600 hover:underline">公式を開く ↗</a>
+        </div>
+        <div class="p-2 bg-slate-900">
+          <div class="relative w-full aspect-[485/402] rounded bg-black overflow-hidden">
+            <iframe id="gridFrame0" src="" allowtransparency="true" frameborder="0" scrolling="no" allowfullscreen class="absolute inset-0 w-full h-full"></iframe>
+          </div>
+        </div>
+      </div>
+
+      <!-- カード2 -->
+      <div class="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden flex flex-col">
+        <div class="p-3 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+          <span class="font-bold text-xs text-slate-700" id="gridTitle1">プロジェクト 2</span>
+          <a id="gridLink1" href="#" target="_blank" class="text-[11px] text-orange-600 hover:underline">公式を開く ↗</a>
+        </div>
+        <div class="p-2 bg-slate-900">
+          <div class="relative w-full aspect-[485/402] rounded bg-black overflow-hidden">
+            <iframe id="gridFrame1" src="" allowtransparency="true" frameborder="0" scrolling="no" allowfullscreen class="absolute inset-0 w-full h-full"></iframe>
+          </div>
+        </div>
+      </div>
+
+      <!-- カード3 -->
+      <div class="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden flex flex-col">
+        <div class="p-3 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+          <span class="font-bold text-xs text-slate-700" id="gridTitle2">プロジェクト 3</span>
+          <a id="gridLink2" href="#" target="_blank" class="text-[11px] text-orange-600 hover:underline">公式を開く ↗</a>
+        </div>
+        <div class="p-2 bg-slate-900">
+          <div class="relative w-full aspect-[485/402] rounded bg-black overflow-hidden">
+            <iframe id="gridFrame2" src="" allowtransparency="true" frameborder="0" scrolling="no" allowfullscreen class="absolute inset-0 w-full h-full"></iframe>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- コピーライト等のフッター -->
+  <footer class="text-center text-xs text-slate-400 mt-6 py-2">
+    Powered by Scratch (MIT Media Lab)
+  </footer>
+
+  <script>
+    // ▼ 3つのプロジェクト情報を設定
+    const projects = [
+      {
+        id: "1396983394",
+        title: "iPad&マウス＆スイッチでお絵かき"
+      },
+      {
+        id: "1396985806",
+        title: "和太鼓の達人"
+      },
+      {
+        id: "1396987976",
+        title: "スーパーまきとくものがたり"
+      }
+    ];
+
+    let currentMode = 0; // 0, 1, 2, or 'grid'
+
+    function switchProject(mode) {
+      currentMode = mode;
+      
+      const singleView = document.getElementById("singleView");
+      const gridView = document.getElementById("gridView");
+      const tabButtons = document.querySelectorAll(".tab-button");
+
+      // ボタンのスタイル更新
+      tabButtons.forEach(btn => {
+        btn.classList.remove("bg-orange-500", "text-white", "shadow-sm");
+        btn.classList.add("bg-transparent", "text-slate-600", "hover:bg-slate-100");
+      });
+
+      const activeBtnId = mode === 'grid' ? 'tab-btn-grid' : `tab-btn-${mode}`;
+      const activeBtn = document.getElementById(activeBtnId);
+      if (activeBtn) {
+        activeBtn.classList.remove("bg-transparent", "text-slate-600", "hover:bg-slate-100");
+        activeBtn.classList.add("bg-orange-500", "text-white", "shadow-sm");
+      }
+
+      if (mode === 'grid') {
+        // グリッド並列表示
+        singleView.classList.add("hidden");
+        gridView.classList.remove("hidden");
+        gridView.classList.add("grid");
+
+        // 各iframeにsrcを設定（遅延読み込み）
+        projects.forEach((proj, idx) => {
+          const frame = document.getElementById(`gridFrame${idx}`);
+          const link = document.getElementById(`gridLink${idx}`);
+          const title = document.getElementById(`gridTitle${idx}`);
+          if (frame && !frame.src) {
+            frame.src = `https://scratch.mit.edu/projects/${proj.id}/embed`;
+          }
+          if (link) link.href = `https://scratch.mit.edu/projects/${proj.id}/`;
+          if (title) title.innerText = proj.title;
+        });
+      } else {
+        // 単一プレイヤー表示
+        gridView.classList.remove("grid");
+        gridView.classList.add("hidden");
+        singleView.classList.remove("hidden");
+
+        const target = projects[mode];
+        document.getElementById("projectTitle").innerText = target.title;
+        document.getElementById("projectIdLabel").innerText = `ID: ${target.id}`;
+        document.getElementById("projectLink").href = `https://scratch.mit.edu/projects/${target.id}/`;
+        document.getElementById("mainPlayerFrame").src = `https://scratch.mit.edu/projects/${target.id}/embed`;
+      }
+    }
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Sample Packer | Hiragana Utility</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="hiragana_data.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: radial-gradient(circle at top left, #0f172a, #000000);
+            min-height: 100vh;
+            color: #f8fafc;
+        }
+        .glass {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+        }
+        .drop-zone {
+            border: 2px dashed rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+        }
+        .drop-zone.active {
+            border-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.05);
+            transform: scale(1.01);
+        }
+        .btn-glow {
+            transition: all 0.3s ease;
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+        }
+        .btn-glow:hover:not(:disabled) {
+            box-shadow: 0 0 30px rgba(59, 130, 246, 0.6);
+            transform: translateY(-2px);
+        }
+        .file-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            transition: all 0.2s ease;
+        }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+    </style>
+</head>
+<body class="p-6 md:p-12">
+    <div class="max-w-4xl mx-auto">
+        <!-- Header -->
+        <header class="flex items-center justify-between mb-12">
+            <div>
+                <h1 class="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-500">
+                    Audio Sample Packer
+                </h1>
+                <p class="text-slate-400 mt-2 font-light">ひらがな50おん専用サウンド統合ユーティリティ</p>
+            </div>
+            <div class="hidden md:block">
+                <span class="px-4 py-1.5 glass text-xs font-semibold tracking-widest uppercase text-blue-400">Version 1.0</span>
+            </div>
+        </header>
+
+        <!-- Main Interface -->
+        <main class="grid gap-8">
+            <!-- Drop area -->
+            <div id="dropZone" class="drop-zone glass p-12 text-center cursor-pointer relative overflow-hidden">
+                <div class="relative z-10">
+                    <div class="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <svg class="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-2">音声ファイルをドロップしてください</h3>
+                    <p class="text-slate-400 text-sm">または、クリックしてファイルを選択 (.wavのみ)</p>
+                </div>
+                <input type="file" id="fileInput" multiple accept=".wav" class="absolute inset-0 opacity-0 cursor-pointer">
+            </div>
+
+            <!-- List and Status -->
+            <div class="glass p-8">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-xl font-bold flex items-center gap-2">
+                        処理状況
+                        <span id="fileCount" class="text-sm font-normal text-slate-500 bg-slate-800 px-2 py-0.5 rounded">0 files</span>
+                    </h2>
+                    <button id="exportBtn" disabled class="px-6 py-2 bg-blue-600 rounded-xl font-bold text-sm btn-glow disabled:opacity-30 disabled:cursor-not-allowed">
+                        Export audio_samples.json
+                    </button>
+                </div>
+
+                <div id="fileList" class="grid gap-3 max-h-[400px] overflow-y-auto pr-2">
+                    <!-- Files will be added here -->
+                    <div class="text-center py-12 text-slate-500 italic text-sm">
+                        ファイルが選択されていません。
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer Info -->
+        <footer class="mt-12 text-center text-slate-500 text-xs">
+            <p>© 2026 Hiragana 50on Project. All character audios will be consolidated into a single JSON file.</p>
+        </footer>
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileList = document.getElementById('fileList');
+        const fileCount = document.getElementById('fileCount');
+        const exportBtn = document.getElementById('exportBtn');
+
+        const audioStorage = {};
+        let targetFileNames = new Set();
+
+        // 期待されるファイルリストを構築
+        if (window.HIRAGANA_DATA && window.HIRAGANA_DATA.fileNameMap) {
+            const map = window.HIRAGANA_DATA.fileNameMap;
+            Object.values(map).forEach(val => targetFileNames.add(`${val}.wav`));
+            ['a.wav', 'i.wav', 'u.wav', 'e.wav', 'o.wav', 'nn.wav', 'っ.wav'].forEach(name => targetFileNames.add(name));
+        }
+
+        // Drag & Drop events
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evt => {
+            dropZone.addEventListener(evt, e => {
+                e.preventDefault();
+                e.stopPropagation();
+            });
+        });
+
+        dropZone.addEventListener('dragenter', () => dropZone.classList.add('active'));
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('active'));
+        dropZone.addEventListener('drop', e => {
+            dropZone.classList.remove('active');
+            handleFiles(e.dataTransfer.files);
+        });
+
+        fileInput.addEventListener('change', e => handleFiles(e.target.files));
+
+        async function handleFiles(files) {
+            const wavFiles = Array.from(files).filter(f => f.name.endsWith('.wav'));
+            if (wavFiles.length === 0) return;
+
+            for (const file of wavFiles) {
+                const base64 = await fileToBase64(file);
+                audioStorage[file.name] = base64;
+            }
+
+            renderFileList();
+            exportBtn.disabled = Object.keys(audioStorage).length === 0;
+            fileCount.textContent = `${Object.keys(audioStorage).length} files`;
+        }
+
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => {
+                    const base64String = reader.result.split(',')[1];
+                    resolve(base64String);
+                };
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        function renderFileList() {
+            fileList.innerHTML = '';
+            const names = Object.keys(audioStorage).sort();
+
+            if (names.length === 0) {
+                fileList.innerHTML = '<div class="text-center py-12 text-slate-500 italic text-sm">ファイルが選択されていません。</div>';
+                return;
+            }
+
+            names.forEach(name => {
+                const isMatched = targetFileNames.has(name);
+                const card = document.createElement('div');
+                card.className = 'file-card p-4 flex items-center justify-between border border-transparent hover:border-slate-700';
+                card.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <div class="text-sm font-medium">${name}</div>
+                        ${isMatched ? 
+                            '<span class="text-[10px] bg-green-500/10 text-green-400 px-2 py-0.5 rounded border border-green-500/20">MATCHED</span>' : 
+                            '<span class="text-[10px] bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded border border-amber-500/20">IGNORED BY APP?</span>'}
+                    </div>
+                    <button onclick="removeFile('${name}')" class="text-slate-500 hover:text-red-400">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                `;
+                fileList.appendChild(card);
+            });
+        }
+
+        window.removeFile = (name) => {
+            delete audioStorage[name];
+            renderFileList();
+            exportBtn.disabled = Object.keys(audioStorage).length === 0;
+            fileCount.textContent = `${Object.keys(audioStorage).length} files`;
+        };
+
+        exportBtn.addEventListener('click', () => {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(audioStorage));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", "audio_samples.json");
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        });
+    </script>
+</body>
+</html>

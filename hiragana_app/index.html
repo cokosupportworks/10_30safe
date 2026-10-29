@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+
+  <title>ひらがな50おん</title>
+    <!-- アプリアイコンの設定 -->
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <link rel="icon" href="apple-touch-icon.png">
+
+
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- ★追加: プレビュー環境の変数干渉を回避して Kuromoji.js を確実に読み込む -->
+  <script>
+    var _tempModule = window.module;
+    var _tempExports = window.exports;
+    var _tempDefine = window.define;
+    window.module = undefined;
+    window.exports = undefined;
+    window.define = undefined;
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/build/kuromoji.js"></script>
+  <script>
+    window.module = _tempModule;
+    window.exports = _tempExports;
+    window.define = _tempDefine;
+  </script>
+  <style>
+    /* 文字欄用のカスタムスクロールバーを追加 */
+    #text-container-ref {
+      scrollbar-width: thin;
+      scrollbar-color: #9ca3af #f3f4f6;
+    }
+
+    #text-container-ref::-webkit-scrollbar {
+      width: 1.5cqw;
+    }
+
+    #text-container-ref::-webkit-scrollbar-track {
+      background: #f3f4f6;
+      border-radius: 1cqw;
+      margin: 0.5cqw 0;
+    }
+
+    #text-container-ref::-webkit-scrollbar-thumb {
+      background-color: #9ca3af;
+      border-radius: 1cqw;
+      border: 0.2cqw solid #f3f4f6;
+    }
+
+    #text-container-ref::-webkit-scrollbar-thumb:hover {
+      background-color: #6b7280;
+    }
+
+    body {
+      /* ★ アプリの完全固定化のための基本設定 */
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior: none;
+      touch-action: manipulation;
+      /* ダブルタップズーム禁止 */
+    }
+
+    @keyframes bounce-slow {
+
+      0%,
+      100% {
+        transform: translateY(0);
+      }
+
+      50% {
+        transform: translateY(-2cqh);
+      }
+    }
+
+    .animate-title {
+      animation: bounce-slow 3s ease-in-out infinite;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- 画面全体の背景 -->
+  <div class="w-screen h-[100dvh] bg-[#b0dcf8] flex items-center justify-center overflow-hidden font-sans select-none">
+
+    <!-- アプリ本体のコンテナ -->
+    <div class="relative flex flex-col bg-[#e0f2fe] shadow-2xl overflow-hidden"
+      style="aspect-ratio: 4 / 3; width: 100%; max-width: calc(100dvh * (4 / 3)); max-height: 100dvh; container-type: size;">
+
+      <!-- ★ タイトル画面（背景画像・ロゴ指定）: bg-[#b0dcf8] を追加して画像読み込み前の透過を防止 -->
+      <div id="title-screen"
+        class="absolute inset-0 z-[500] flex flex-col items-center justify-between transition-opacity duration-700 py-[2cqh] bg-[#b0dcf8]"
+        style="background-image: url('op_back.png'); background-size: cover; background-position: center;">
+
+        <!-- ロゴエリア -->
+        <div class="flex-1 flex items-center justify-center w-full px-[5cqw]">
+          <div class="animate-title w-full flex justify-center">
+            <img src="op_logo.png" alt="タイトルロゴ" draggable="false"
+              class="max-w-[85cqw] max-h-[55cqh] object-contain drop-shadow-[0_1cqw_2cqw_rgba(0,0,0,0.5)]">
+          </div>
+        </div>
+
+        <!-- ボタン・ローディングエリア (★ mb-[2cqh] を mb-[8cqh] に変更して上に移動) -->
+        <div class="h-[25cqh] flex flex-col items-center justify-center relative w-full mb-[8cqh]">
+          <div id="start-btn-container" class="opacity-0 pointer-events-none transition-opacity duration-1000 absolute">
+            <button id="btn-app-start"
+              class="bg-red-500 hover:bg-red-600 text-white font-extrabold rounded-full shadow-2xl border-b-[0.8cqh] border-red-700 active:translate-y-[0.4cqh] active:border-b-0 transition-all flex items-center justify-center"
+              style="width: 32cqw; height: 12cqh; font-size: 4.5cqw; text-shadow: 0 0.2cqw 0.4cqw rgba(0,0,0,0.3);">
+              はじめる
+            </button>
+          </div>
+          <div id="loading-spinner" class="flex flex-col items-center gap-[2cqh] absolute">
+            <div
+              class="animate-spin rounded-full border-[1cqw] border-white/80 border-t-blue-500 shadow-[0_0_1cqw_rgba(0,0,0,0.3)]"
+              style="width: 6cqw; height: 6cqw;"></div>
+            <p id="loading-status-text"
+              class="text-white font-bold bg-black/40 px-[2.5cqw] py-[0.8cqw] rounded-full backdrop-blur-sm"
+              style="font-size: 1.5cqw; text-shadow: 0 0.1cqw 0.2cqw rgba(0,0,0,0.5);">音声をRAMに準備しています... (0%)</p>
+          </div>
+        </div>
+
+        <!-- ★ 修正: コピーライト表記を復活 (©マークなし) -->
+        <div class="text-white font-bold tracking-wider"
+          style="font-size: 1.4cqw; text-shadow: 0 0.2cqw 0.4cqw rgba(0,0,0,0.8);">
+          2026 ココサポート・ワークス
+        </div>
+
+        <!-- ★ 新規: 右下にバージョン番号を配置 -->
+        <div class="absolute bottom-[2cqh] right-[3cqw] text-white/70 font-bold"
+          style="font-size: 1.2cqw; text-shadow: 0 0.1cqw 0.2cqw rgba(0,0,0,0.5);">
+          2.1
+        </div>
+      </div>
+
+      <!-- ★ クマの再生ボタン -->
+      <div id="bear-mascot-container"
+        class="absolute bottom-0 left-0 z-[100] transition-opacity duration-200 pointer-events-none"
+        style="width: 12.6cqw; height: 37.8cqw;">
+        <img id="bear-mascot" src="bear_3.png" alt="再生クマ" draggable="false"
+          class="w-full h-full object-contain object-bottom drop-shadow-md">
+        <!-- クリック判定用の透明エリア -->
+        <div id="bear-click-area"
+          class="absolute bottom-0 left-0 w-[9cqw] h-[22cqh] pointer-events-auto cursor-pointer"></div>
+      </div>
+
+      <!-- ★ 新規: クイズのスコア表示 (クマと同じ左下に配置) -->
+      <div id="quiz-score-container"
+        class="absolute bottom-[2cqh] left-[1cqw] z-[110] w-[8.5cqw] h-[10cqw] bg-white rounded-[1.5cqw] border-[0.4cqw] border-blue-400 shadow-lg hidden flex-col items-center justify-center">
+        <span class="text-blue-600 font-bold mb-[0.2cqw]" style="font-size: 1.4cqw;">とくてん</span>
+        <div class="flex items-baseline font-black text-blue-800" style="line-height: 1;">
+          <span id="quiz-score-correct" style="font-size: 3.5cqw;">0</span>
+          <span style="font-size: 1.5cqw; margin: 0 0.2cqw;">/</span>
+          <span id="quiz-score-total" style="font-size: 2cqw;">0</span>
+        </div>
+      </div>
+
+      <!-- 上部：ひらがなボードエリア -->
+      <div class="flex items-center justify-center flex-1" style="padding: 1.2cqw;">
+        <div id="board-container" style="display: grid; width: 100%; height: 100%; gap: 0.8cqw;"></div>
+      </div>
+
+      <!-- 下部：コントロール＆表示エリア -->
+      <div class="bg-[#dbeafe]"
+        style="height: 22cqh; border-top: 0.4cqw solid #93c5fd; padding: 1.5cqw; display: flex; gap: 1.5cqw; box-shadow: 0 -0.4cqw 1cqw rgba(0,0,0,0.05); z-index: 30;">
+
+        <!-- ★ 通常モードのUI ★ -->
+        <div id="normal-mode-ui" style="flex: 1; display: flex; gap: 1.5cqw; position: relative;">
+          <!-- 入力テキスト表示エリア -->
+          <div class="bg-white"
+            style="flex: 1; display: flex; align-items: center; border-radius: 1.5cqw; border: 0.3cqw solid #bfdbfe; box-shadow: inset 0 0.2cqw 0.4cqw rgba(0,0,0,0.05); padding: 1cqw 0 1cqw 2cqw; overflow: hidden; height: calc(100% - 6cqh); margin-left: 9cqw; align-self: flex-start; position: relative;">
+            <div id="text-container-ref" style="flex: 1; height: 100%; overflow-y: auto; padding-right: 1cqw;">
+              <div id="input-text-display"
+                style="padding: 0.5cqw 0; font-size: 2cqw; font-weight: bold; color: #1f2937; line-height: 1.3; word-break: break-all; white-space: pre-wrap;">
+                <!-- JSでテキストを描画 -->
+              </div>
+            </div>
+            <!-- ★ 修正: もういちどきく -> もんだいをきく -->
+            <button id="btn-quiz-repeat"
+              class="hidden h-[calc(100%-1cqw)] my-auto mr-[0.5cqw] px-[1.5cqw] bg-orange-400 hover:bg-orange-500 active:translate-y-[0.3cqw] active:border-b-0 transition-all text-white font-extrabold rounded-[1.2cqw] border-b-[0.4cqw] border-orange-600 flex-col items-center justify-center flex-shrink-0 cursor-pointer shadow-md">
+              <span
+                style="font-size: 2.8cqw; line-height: 1; margin-bottom: 0.2cqw; filter: drop-shadow(0 0.2cqw 0 rgba(0,0,0,0.2));">🔊</span>
+              <span
+                style="font-size: 1cqw; white-space: nowrap; line-height: 1.2; text-align: center;">もんだいを<br>きく</span>
+            </button>
+          </div>
+
+          <!-- 消しゴムエリア -->
+          <div style="display: flex; flex-direction: column; gap: 0.4cqw; height: 100%; width: 10cqw; flex-shrink: 0;">
+            <!-- 1文字消す -->
+            <button id="btn-backspace"
+              class="hover:scale-105 active:scale-95 active:translate-y-[0.2cqw] transition-transform flex items-center justify-center"
+              style="flex: 2; min-height: 0; background: none; border: none; padding: 0.5cqw; cursor: pointer;">
+              <img src="keshigom.png" alt="1文字消す" draggable="false"
+                style="width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 0.4cqw 0.2cqw rgba(0,0,0,0.2));">
+            </button>
+
+            <!-- ぜんぶけす -->
+            <button id="btn-clear-all"
+              class="bg-red-100 hover:bg-red-200 active:translate-y-[0.2cqw] transition-transform text-red-600 font-bold flex items-center justify-center"
+              style="flex: 1; min-height: 0; padding: 0 0.5cqw; border-radius: 0.8cqw; border-bottom: 0.3cqw solid #fca5a5; font-size: 1.1cqw; letter-spacing: -0.05em;">
+              ぜんぶけす
+            </button>
+          </div>
+
+          <!-- ★ 修正: 文字欄の幅に合わせ、flex-1で均等割り当てし、左右の余白をなくす -->
+          <div id="tabs-container" class="absolute flex justify-between z-10"
+            style="left: 9cqw; right: 11.5cqw; top: calc(100% - 6cqh); bottom: -1.5cqw; gap: 0.5cqw;">
+
+            <!-- 左半分の歯車ボタン (★修正: translateX(50%)にして綺麗に半分にする) -->
+            <button id="btn-settings-left"
+              class="self-start flex-shrink-0 flex items-center justify-end overflow-hidden opacity-30 hover:opacity-100 transition-opacity"
+              style="width: 5cqw; height: 7.875cqh; touch-action: none;">
+              <div style="font-size: 5cqw; line-height: 1; transform: translateX(50%);">⚙️</div>
+            </button>
+
+            <!-- タブエリア（全体で残り幅を均等に割り当て） -->
+            <div class="flex flex-1 items-end h-full" style="gap: 0.5cqw; min-width: 0;">
+
+              <!-- Q1 スロット -->
+              <div class="relative flex-1 h-full flex flex-col justify-end" style="min-width: 0;">
+                <button id="btn-q3-play"
+                  class="hidden w-full bg-indigo-500 hover:bg-indigo-600 active:translate-y-[0.2cqw] transition-transform text-white font-bold rounded-full h-[5.5cqh] px-0 shadow-md border-b-[0.4cqw] border-indigo-700 text-[1.6cqw] items-center justify-center gap-[0.2cqw] mb-[0.5cqh]"
+                  style="letter-spacing: -0.05em;">▶️さいせい</button>
+                <button id="btn-tab-q1"
+                  class="w-full px-0 bg-pink-400 hover:bg-pink-500 text-white font-bold rounded-t-[1.5cqw] shadow-[0_-0.2cqw_0.4cqw_rgba(0,0,0,0.15)] border-[0.2cqw] border-b-0 border-pink-500 transition-all origin-bottom flex items-center justify-center"
+                  style="height: calc(5cqh + 15px); font-size: 1.8cqw; letter-spacing: -0.05em;">もんだい①</button>
+              </div>
+
+              <!-- Q2 スロット -->
+              <div class="relative flex-1 h-full flex flex-col justify-end" style="min-width: 0;">
+                <button id="btn-q3-submit"
+                  class="hidden w-full bg-emerald-500 hover:bg-emerald-600 active:translate-y-[0.2cqw] transition-transform text-white font-bold rounded-full h-[5.5cqh] px-0 shadow-md border-b-[0.4cqw] border-emerald-700 text-[1.6cqw] items-center justify-center gap-[0.2cqw] mb-[0.5cqh]"
+                  style="letter-spacing: -0.05em;">🙋けってい</button>
+                <button id="btn-tab-q2"
+                  class="w-full px-0 bg-teal-400 hover:bg-teal-500 text-white font-bold rounded-t-[1.5cqw] shadow-[0_-0.2cqw_0.4cqw_rgba(0,0,0,0.15)] border-[0.2cqw] border-b-0 border-teal-500 transition-all origin-bottom flex items-center justify-center"
+                  style="height: calc(5cqh + 15px); font-size: 1.8cqw; letter-spacing: -0.05em;">もんだい②</button>
+              </div>
+
+              <!-- Q3 スロット -->
+              <div class="relative flex-1 h-full flex flex-col justify-end" style="min-width: 0;">
+                <button id="btn-tab-q3"
+                  class="w-full px-0 bg-yellow-400 hover:bg-yellow-500 text-yellow-900 font-bold rounded-t-[1.5cqw] shadow-[0_-0.2cqw_0.4cqw_rgba(0,0,0,0.15)] border-[0.2cqw] border-b-0 border-yellow-500 transition-all origin-bottom flex items-center justify-center"
+                  style="height: calc(5cqh + 15px); font-size: 1.8cqw; letter-spacing: -0.05em;">もんだい③</button>
+              </div>
+            </div>
+
+            <!-- 右半分の歯車ボタン (★修正: translateX(-50%)にして綺麗に半分にする) -->
+            <button id="btn-settings-right"
+              class="self-start flex-shrink-0 flex items-center justify-start overflow-hidden opacity-30 hover:opacity-100 transition-opacity"
+              style="width: 5cqw; height: 7.875cqh; touch-action: none;">
+              <div style="font-size: 5cqw; line-height: 1; transform: translateX(-50%);">⚙️</div>
+            </button>
+          </div>
+        </div>
+
+        <!-- ★ 録音モードのUI (初期は非表示) ★ -->
+        <div id="record-mode-ui"
+          style="display: none; flex: 1; gap: 1cqw; margin-left: 9cqw; align-items: center; background: #fee2e2; border-radius: 1.5cqw; padding: 1cqw; border: 0.3cqw solid #fca5a5; height: calc(100% - 4cqh); align-self: flex-start;">
+
+          <!-- 選択文字表示 -->
+          <div
+            style="flex: 1; background: white; border-radius: 1cqw; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: bold; color: #374151; height: 100%; box-shadow: inset 0 0.2cqw 0.4cqw rgba(0,0,0,0.05);">
+            <span style="font-size: 1.4cqw; color: #6b7280; margin-bottom: 0.2cqw;">選択中の文字</span>
+            <span id="record-target-display" style="font-size: 3.5cqw; line-height: 1; color: #9ca3af;">未選択</span>
+          </div>
+
+          <!-- コントロールボタン -->
+          <div style="display: flex; gap: 0.5cqw; flex: 3.2; height: 100%;">
+            <div style="flex: 1.1; display: flex; flex-direction: column; gap: 0.4cqw;">
+              <button id="btn-record-start"
+                class="bg-red-500 text-white rounded-[1cqw] font-bold hover:bg-red-600 active:scale-95 transition-transform flex flex-col items-center justify-center gap-[0.1cqw] shadow-md border-b-[0.3cqw] border-red-700 disabled:opacity-50"
+                style="flex: 2; font-size: 1.5cqw;">
+                <span style="font-size: 1.8cqw; line-height: 1;">⏺</span>録音
+              </button>
+              <button id="btn-record-import"
+                class="bg-orange-500 text-white rounded-[0.8cqw] font-bold hover:bg-orange-600 active:scale-95 transition-transform flex items-center justify-center shadow-sm border-b-[0.2cqw] border-orange-700 disabled:opacity-50"
+                style="flex: 1; font-size: 1.1cqw;">
+                📥 読み込み
+              </button>
+              <input type="file" id="record-file-input" accept="audio/*" style="display: none;">
+            </div>
+
+            <div style="flex: 1; display: flex; flex-direction: column; gap: 0.4cqw;">
+              <button id="btn-record-play"
+                class="bg-green-500 text-white rounded-[0.8cqw] font-bold hover:bg-green-600 active:scale-95 transition-transform flex items-center justify-center shadow-md border-b-[0.3cqw] border-green-700 opacity-50 cursor-not-allowed"
+                style="flex: 2; font-size: 1.4cqw;">
+                ▶ 再生
+              </button>
+              <button id="btn-trim-open"
+                class="bg-blue-500 text-white rounded-[0.6cqw] font-bold hover:bg-blue-600 active:scale-95 transition-transform flex items-center justify-center shadow-sm border-b-[0.2cqw] border-blue-700 opacity-50 cursor-not-allowed"
+                style="flex: 1; font-size: 1.1cqw;">
+                ✂️ 波形調整
+              </button>
+            </div>
+
+            <!-- 音声切り替えトグル -->
+            <div
+              style="flex: 1.5; display: flex; flex-direction: column; background: #fca5a5; padding: 0.3cqw; border-radius: 1cqw; border: 0.2cqw solid #ef4444;">
+              <div
+                style="font-size: 1.1cqw; font-weight: bold; color: #7f1d1d; text-align: center; margin-bottom: 0.2cqw; line-height: 1.2;">
+                使用する音声</div>
+              <div style="display: flex; gap: 0.2cqw; flex: 1; padding: 0 0.1cqw;">
+                <button id="btn-audio-sample"
+                  class="flex-1 rounded-[0.4cqw] font-bold transition-colors flex items-center justify-center bg-gray-100 text-gray-400 opacity-50 cursor-not-allowed"
+                  style="font-size: 0.9cqw; padding: 0;">サンプル</button>
+                <button id="btn-audio-record"
+                  class="flex-1 rounded-[0.4cqw] font-bold transition-colors flex items-center justify-center bg-gray-100 text-gray-400 opacity-50 cursor-not-allowed"
+                  style="font-size: 0.9cqw; padding: 0;">録音</button>
+              </div>
+            </div>
+
+            <!-- 処理設定 (新規) -->
+            <div
+              style="flex: 2; display: flex; flex-direction: column; background: #fee2e2; padding: 0.3cqw; border-radius: 1cqw; border: 0.2cqw solid #fca5a5;">
+              <div
+                style="font-size: 1cqw; font-weight: bold; color: #991b1b; text-align: center; margin-bottom: 0.2cqw; line-height: 1;">
+                自動処理設定</div>
+              <div style="flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 0.4cqw; padding: 0 0.2cqw;">
+                <div class="flex flex-col gap-[0.1cqw]">
+                  <span style="font-size: 0.8cqw; font-weight: bold; color: #b91c1c;">●録音</span>
+                  <label class="flex items-center gap-[0.2cqw] cursor-pointer" style="font-size: 0.8cqw; font-weight: bold;">
+                    <input type="checkbox" id="chk-trim-record" class="w-[1cqw] h-[1cqw] accent-red-500" checked>カット
+                  </label>
+                  <label class="flex items-center gap-[0.2cqw] cursor-pointer" style="font-size: 0.8cqw; font-weight: bold;">
+                    <input type="checkbox" id="chk-noise-record" class="w-[1cqw] h-[1cqw] accent-red-500" checked>ノイズ
+                  </label>
+                </div>
+                <div class="flex flex-col gap-[0.1cqw]">
+                  <span style="font-size: 0.8cqw; font-weight: bold; color: #b91c1c;">●読み込み</span>
+                  <label class="flex items-center gap-[0.2cqw] cursor-pointer" style="font-size: 0.8cqw; font-weight: bold;">
+                    <input type="checkbox" id="chk-trim-import" class="w-[1cqw] h-[1cqw] accent-red-500" checked>カット
+                  </label>
+                  <label class="flex items-center gap-[0.2cqw] cursor-pointer" style="font-size: 0.8cqw; font-weight: bold;">
+                    <input type="checkbox" id="chk-noise-import" class="w-[1cqw] h-[1cqw] accent-red-500" checked>ノイズ
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 消去・終了ボタン -->
+          <div style="display: flex; flex-direction: column; gap: 0.5cqw; width: 8cqw; height: 100%;">
+            <button id="btn-record-clear"
+              class="bg-gray-400 text-white rounded-[0.8cqw] font-bold flex-1 hover:bg-gray-50 active:scale-95 transition-transform flex items-center justify-center shadow-sm border-b-[0.2cqw] border-gray-500 opacity-50 cursor-not-allowed"
+              style="font-size: 1.4cqw;">
+              消去
+            </button>
+            <button id="btn-record-exit"
+              class="bg-gray-800 text-white rounded-[0.8cqw] font-bold flex-1 hover:bg-gray-900 active:scale-95 transition-transform flex items-center justify-center shadow-sm border-b-[0.2cqw] border-gray-900"
+              style="font-size: 1.4cqw;">
+              終了
+            </button>
+          </div>
+        </div>
+
+        <!-- 右側のボタン群（ボード切り替え・モード切り替え） -->
+        <div style="display: flex; gap: 1cqw; height: 100%; padding: 0.5cqw 0; flex-shrink: 0;">
+          <div
+            style="height: 100%; background-color: rgba(219, 234, 254, 0.8); padding: 0.4cqw; border-radius: 1cqw; border: 0.2cqw solid rgba(191, 219, 254, 0.5); box-shadow: inset 0 0.2cqw 0.4cqw rgba(0,0,0,0.05); display: flex; flex-direction: column; justify-content: space-between; gap: 0.4cqw;">
+            <button id="btn-seion"
+              style="flex: 1; padding: 0 1cqw; border-radius: 0.8cqw; font-size: 1.6cqw;">せいおん!!</button>
+            <button id="btn-dakuon"
+              style="flex: 1; padding: 0 1cqw; border-radius: 0.8cqw; font-size: 1.3cqw;">だくおん・<br>ようおん</button>
+          </div>
+          <div
+            style="height: 100%; background-color: rgba(219, 234, 254, 0.8); padding: 0.4cqw; border-radius: 1cqw; border: 0.2cqw solid rgba(191, 219, 254, 0.5); box-shadow: inset 0 0.2cqw 0.4cqw rgba(0,0,0,0.05); display: flex; flex-direction: column; justify-content: space-between; gap: 0.4cqw;">
+            <button id="btn-char"
+              style="flex: 1; padding: 0 1.2cqw; border-radius: 0.8cqw; font-size: 1.6cqw;">もじ</button>
+            <button id="btn-name"
+              style="flex: 1; padding: 0 1.2cqw; border-radius: 0.8cqw; font-size: 1.6cqw;">なまえ</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- カウントダウン用オーバーレイ -->
+      <div id="countdown-overlay"
+        class="absolute inset-0 bg-black/60 hidden flex-col items-center justify-center z-[200]">
+        <div id="countdown-text"
+          class="text-white font-bold text-[30cqw] leading-none drop-shadow-[0_0.5cqw_1cqw_rgba(0,0,0,0.8)]">3</div>
+      </div>
+
+      <!-- 確認ポップアップ -->
+      <div id="confirm-modal" class="absolute inset-0 bg-black/60 hidden items-center justify-center z-[100]">
+        <div
+          class="bg-white rounded-[2cqw] p-[3cqw] shadow-2xl text-center flex flex-col items-center border-[0.4cqw] border-red-300"
+          style="width: 60cqw;">
+          <p class="font-bold text-[#1f2937] mb-[4cqw]" style="font-size: 3.5cqw;">ほんとうに ぜんぶ けしますか？</p>
+          <div class="flex justify-center gap-[2cqw] w-full">
+            <button id="modal-btn-cancel"
+              class="bg-gray-300 hover:bg-gray-400 active:translate-y-[0.2cqw] transition-transform text-gray-800 font-bold rounded-[1cqw] border-b-[0.4cqw] border-gray-500"
+              style="flex: 1; padding: 1.5cqw; font-size: 2.5cqw;">けさない</button>
+            <button id="modal-btn-delete"
+              class="bg-red-500 hover:bg-red-600 active:translate-y-[0.2cqw] transition-transform text-white font-bold rounded-[1cqw] border-b-[0.4cqw] border-red-700"
+              style="flex: 1; padding: 1.5cqw; font-size: 2.5cqw;">けす</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ★ 設定ポップアップ -->
+      <div id="settings-modal" class="absolute inset-0 bg-black/60 hidden items-center justify-center z-[150]">
+        <div id="settings-modal-content"
+          class="bg-white rounded-[1.5cqw] p-[2cqw] shadow-2xl flex flex-col relative border-[0.3cqw] border-gray-300"
+          style="width: 75cqw; max-height: 90vh; overflow-y: auto;">
+          <button id="settings-close"
+            class="absolute top-[0.5cqw] right-[1cqw] text-gray-500 hover:text-gray-800 hover:scale-110 active:scale-95 transition-transform"
+            style="font-size: 2.5cqw; padding: 0.5cqw; line-height: 1;">×</button>
+          <h2 class="font-bold text-[#1f2937] mb-[1.5cqw] text-center" style="font-size: 2cqw;">設定</h2>
+
+          <div class="grid grid-cols-2 gap-[3cqw]">
+            <!-- 左カラム -->
+            <div class="flex flex-col gap-[2cqw]">
+              <!-- 音量調節 -->
+              <div class="flex flex-col w-full border-b-[0.1cqw] border-gray-200 pb-[1.5cqw] gap-[1.5cqw]">
+                <label class="font-bold text-gray-700 text-center" style="font-size: 1.4cqw;">音量</label>
+                <div class="px-[1cqw] flex flex-col gap-[1.5cqw]">
+                  <div>
+                    <div class="flex justify-between items-end mb-[0.4cqw]">
+                      <span class="text-gray-700 font-bold" style="font-size: 1.2cqw;">音声の音量</span>
+                      <span id="audio-volume-display" class="font-bold text-gray-800" style="font-size: 1.2cqw;">70%
+                        (初期値)</span>
+                    </div>
+                    <input type="range" id="audio-volume-slider" min="0" max="10" step="1" value="7"
+                      class="w-full h-[1.2cqw] bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                  </div>
+                  <div>
+                    <div class="flex justify-between items-end mb-[0.4cqw]">
+                      <span class="text-gray-700 font-bold" style="font-size: 1.2cqw;">効果音 (ボタン音など)</span>
+                      <span id="se-volume-display" class="font-bold text-gray-800" style="font-size: 1.2cqw;">70%
+                        (初期値)</span>
+                    </div>
+                    <input type="range" id="se-volume-slider" min="0" max="10" step="1" value="7"
+                      class="w-full h-[1.2cqw] bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                  </div>
+                </div>
+              </div>
+
+              <!-- 再生速度 -->
+              <div class="flex flex-col w-full pb-[0.5cqw]">
+                <label class="font-bold text-gray-700 mb-[0.8cqw] text-center" style="font-size: 1.4cqw;">連続再生の速度
+                  (文字間の待機時間)</label>
+                <div class="px-[1cqw]">
+                  <input type="range" id="speed-slider" min="-200" max="500" step="50" value="100"
+                    class="w-full h-[1.2cqw] bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                  <div class="flex justify-between text-gray-500 mt-[0.5cqw]" style="font-size: 1.1cqw;">
+                    <span style="flex: 1; text-align: left;">超高速</span>
+                    <span id="speed-display" class="font-bold text-gray-800 text-center"
+                      style="flex: 2; font-size: 1.2cqw;">0.1秒 (初期値)</span>
+                    <span style="flex: 1; text-align: right;">超低速</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ★ 移動してきた項目: 助詞「は」「へ」の自動変換設定 -->
+              <div class="flex flex-col w-full pt-[0.5cqw] border-t-[0.1cqw] border-gray-200 mt-[0.5cqw]">
+                <label class="font-bold text-gray-700 mb-[1cqw] text-center" style="font-size: 1.3cqw;">助詞「は」「へ」の自動変換機能</label>
+                <div class="flex flex-col gap-[0.5cqw] px-[1cqw]">
+                  <p class="text-gray-600 font-bold text-center" style="font-size: 1.1cqw;">自動変換を有効にする</p>
+                  <div class="flex justify-center gap-[1.5cqw]">
+                    <label class="flex items-center gap-[0.5cqw] cursor-pointer">
+                      <input type="radio" name="auto-particle-conversion" value="true" class="w-[1.2cqw] h-[1.2cqw] accent-blue-500">
+                      <span class="font-bold text-gray-800" style="font-size: 1.2cqw;">する</span>
+                    </label>
+                    <label class="flex items-center gap-[0.5cqw] cursor-pointer">
+                      <input type="radio" name="auto-particle-conversion" value="false" class="w-[1.2cqw] h-[1.2cqw] accent-gray-400" checked>
+                      <span class="font-bold text-gray-500" style="font-size: 1.2cqw;">しない</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 右カラム -->
+            <div class="flex flex-col gap-[1.5cqw]">
+              <!-- 録音カウントダウン設定 -->
+              <div class="flex flex-col w-full border-b-[0.1cqw] border-gray-200 pb-[1.5cqw]">
+                <label class="font-bold text-gray-700 mb-[1cqw] text-center"
+                  style="font-size: 1.4cqw;">録音時のカウントダウン</label>
+                <div class="flex justify-center gap-[1cqw] px-[1cqw]">
+                  <button id="btn-countdown-none"
+                    class="flex-1 py-[0.8cqw] rounded-[0.5cqw] font-bold text-[1.2cqw] transition-colors bg-gray-200 text-gray-600 hover:bg-gray-300">無し</button>
+                  <button id="btn-countdown-3sec"
+                    class="flex-1 py-[0.8cqw] rounded-[0.5cqw] font-bold text-[1.2cqw] transition-colors bg-blue-500 text-white shadow-sm border-b-[0.2cqw] border-blue-700">３秒</button>
+                </div>
+              </div>
+
+              <!-- 録音モードへ -->
+              <div class="flex flex-col w-full pt-[0.5cqw]">
+                <label class="font-bold text-gray-700 mb-[1cqw] text-center"
+                  style="font-size: 1.4cqw;">再生する音声の選択・録音</label>
+                <div class="flex justify-center w-full px-[1cqw]">
+                  <button id="btn-enter-record-mode"
+                    class="w-full bg-red-50 hover:bg-red-100 border-[0.1cqw] border-red-300 text-red-700 font-bold py-[1cqw] rounded-lg hover:scale-105 active:scale-95 transition-transform flex items-center justify-center gap-[0.5cqw]"
+                    style="font-size: 1.3cqw;">
+                    <span style="font-size: 1.6cqw;">🎙️</span> 音声選択・録音モード起動
+                  </button>
+                </div>
+              </div>
+
+              <!-- 問題の設定・作成画面を開く -->
+              <div class="flex flex-col w-full pt-[0.5cqw] border-t-[0.1cqw] border-gray-200 mt-[0.5cqw]">
+                <label class="font-bold text-gray-700 mb-[1cqw] text-center" style="font-size: 1.4cqw;">問題</label>
+                <div class="flex justify-center w-full px-[1cqw]">
+                  <button id="btn-open-quiz-settings"
+                    class="w-full bg-green-50 hover:bg-green-100 border-[0.1cqw] border-green-300 text-green-700 font-bold py-[1cqw] rounded-lg hover:scale-105 active:scale-95 transition-transform flex items-center justify-center gap-[0.5cqw]"
+                    style="font-size: 1.3cqw;">
+                    <span style="font-size: 1.6cqw;">📝</span> 問題の設定・作成画面を開く
+                  </button>
+                </div>
+              </div>
+
+              <!-- ★ データ管理 (バックアップ・復元) -->
+              <div class="flex flex-col w-full pt-[0.5cqw] border-t-[0.1cqw] border-gray-200 mt-[0.5cqw]">
+                <label class="font-bold text-gray-700 mb-[1cqw] text-center" style="font-size: 1.4cqw;">録音データの管理</label>
+                <div class="flex justify-center gap-[1cqw] px-[1cqw]">
+                  <button id="btn-backup-export"
+                    class="flex-1 bg-blue-50 hover:bg-blue-100 border-[0.1cqw] border-blue-300 text-blue-700 font-bold py-[0.8cqw] rounded-lg hover:scale-105 active:scale-95 transition-transform flex flex-col items-center justify-center gap-[0.2cqw]"
+                    style="font-size: 1.1cqw;">
+                    <span style="font-size: 1.5cqw;">⬇️</span> バックアップを保存
+                  </button>
+                  <button id="btn-backup-import-trigger"
+                    class="flex-1 bg-purple-50 hover:bg-purple-100 border-[0.1cqw] border-purple-300 text-purple-700 font-bold py-[0.8cqw] rounded-lg hover:scale-105 active:scale-95 transition-transform flex flex-col items-center justify-center gap-[0.2cqw]"
+                    style="font-size: 1.1cqw;">
+                    <span style="font-size: 1.5cqw;">⬆️</span> バックアップを読込
+                  </button>
+                  <input type="file" id="backup-file-input" accept=".json" class="hidden">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 問題の設定・作成ポップアップ -->
+      <div id="quiz-settings-modal" class="absolute inset-0 bg-black/40 hidden items-center justify-center z-[160]"
+        style="touch-action: none;">
+        <!-- ★ 修正: transformで移動させるため、position: absolute を追加 -->
+        <div id="quiz-settings-modal-content"
+          class="bg-[#f0f9ff] rounded-[2cqw] p-[1.5cqw] shadow-2xl flex flex-col relative border-[0.4cqw] border-blue-400 absolute"
+          style="width: 95cqw; max-height: 98vh; overflow-y: auto;">
+          <button id="quiz-settings-close"
+            class="absolute top-[1cqw] right-[1.5cqw] text-gray-600 hover:text-gray-900 hover:scale-110 active:scale-95 transition-transform font-bold z-10"
+            style="font-size: 3cqw; line-height: 1;">×</button>
+
+          <!-- ★ 修正: ヘッダー部分をドラッグのハンドル（持ち手）に設定 -->
+          <div id="quiz-settings-drag-handle"
+            class="cursor-move bg-blue-100 -mx-[1.5cqw] -mt-[1.5cqw] mb-[1cqw] p-[1cqw] rounded-t-[1.5cqw] border-b border-blue-200 flex items-center justify-center select-none touch-none">
+            <h2 class="font-bold text-[#1f2937]" style="font-size: 2.2cqw;">問題の設定・作成 (ここを持って移動できます)</h2>
+          </div>
+
+          <div class="flex justify-between gap-[1.5cqw] mb-[1.5cqw]">
+
+            <!-- もんだい①カラム (ピンク) -->
+            <div
+              class="flex-1 bg-pink-50 rounded-[1.5cqw] border-[0.3cqw] border-pink-400 flex flex-col overflow-hidden shadow-sm">
+              <div
+                class="bg-pink-400 text-white font-bold py-[0.8cqw] px-[2cqw] rounded-br-[1.5cqw] inline-block self-start shadow-sm"
+                style="font-size: 1.5cqw;">もんだい①</div>
+              <div class="p-[1cqw] flex flex-col flex-1">
+                <p class="font-bold text-center text-gray-800 mb-[1cqw]" style="font-size: 1.3cqw;">「一つの文字を聞いて答える」</p>
+
+                <div class="flex mb-[1cqw]">
+                  <span class="font-bold text-gray-800 mr-[1cqw]" style="font-size: 1.2cqw;">出題</span>
+                  <div class="flex flex-col gap-[0.5cqw]">
+                    <label class="flex items-center gap-[0.5cqw] cursor-pointer"><input type="radio" name="q1-type"
+                        value="seion-random" class="w-[1.5cqw] h-[1.5cqw] accent-blue-500" checked><span
+                        class="font-bold text-gray-700" style="font-size: 1.2cqw;">清音のみ・ランダム</span></label>
+                    <label class="flex items-center gap-[0.5cqw] cursor-pointer"><input type="radio" name="q1-type"
+                        value="random" class="w-[1.5cqw] h-[1.5cqw] accent-blue-500"><span
+                        class="font-bold text-gray-700" style="font-size: 1.2cqw;">無制限・ランダム</span></label>
+                    <label class="flex items-center gap-[0.5cqw] cursor-pointer"><input type="radio" name="q1-type"
+                        value="list-seq" class="w-[1.5cqw] h-[1.5cqw] accent-blue-500"><span
+                        class="font-bold text-gray-700" style="font-size: 1.2cqw;">指定（作成）・順に</span></label>
+                    <label class="flex items-center gap-[0.5cqw] cursor-pointer"><input type="radio" name="q1-type"
+                        value="list-rand" class="w-[1.5cqw] h-[1.5cqw] accent-blue-500"><span
+                        class="font-bold text-gray-700" style="font-size: 1.2cqw;">指定（作成）・ランダム</span></label>
+                  </div>
+                </div>
+
+                <textarea id="q1-list"
+                  class="w-full border-[0.2cqw] border-pink-300 rounded-[0.8cqw] p-[0.8cqw] font-bold text-gray-800 resize-none flex-1 min-h-[8cqh] mb-[1cqw] shadow-inner focus:outline-none focus:border-pink-500"
+                  style="font-size: 1.5cqw;" placeholder="例：あ、か、さ"></textarea>
+
+                <div class="border-t-[0.2cqw] border-pink-200 pt-[1cqw] mb-[1cqw]">
+                  <p class="font-bold text-gray-800 mb-[0.5cqw]" style="font-size: 1.1cqw;">1問のやり直し回数上限</p>
+                  <div class="flex gap-[1cqw]">
+                    <label class="flex items-center gap-[0.3cqw] cursor-pointer"><input type="radio" name="q1-retry"
+                        value="3" class="w-[1.2cqw] h-[1.2cqw] accent-blue-500" checked><span
+                        class="font-bold text-gray-600" style="font-size: 1.1cqw;">3回</span></label>
+                    <label class="flex items-center gap-[0.3cqw] cursor-pointer"><input type="radio" name="q1-retry"
+                        value="5" class="w-[1.2cqw] h-[1.2cqw] accent-blue-500"><span class="font-bold text-gray-600"
+                        style="font-size: 1.1cqw;">5回</span></label>
+                    <label class="flex items-center gap-[0.3cqw] cursor-pointer"><input type="radio" name="q1-retry"
+                        value="10" class="w-[1.2cqw] h-[1.2cqw] accent-blue-500"><span class="font-bold text-gray-600"
+                        style="font-size: 1.1cqw;">10回</span></label>
+                    <label class="flex items-center gap-[0.3cqw] cursor-pointer"><input type="radio" name="q1-retry"
+                        value="0" class="w-[1.2cqw] h-[1.2cqw] accent-gray-400"><span class="font-bold text-gray-500"
+                        style="font-size: 1.1cqw;">無</span></label>
+                  </div>
+                </div>
+
+                <!-- ★ 新規: ヒント設定 -->
+                <div class="border-t-[0.2cqw] border-pink-200 pt-[1cqw] mb-[1cqw]">
+                  <p class="font-bold text-gray-800 mb-[0.5cqw]" style="font-size: 1.1cqw;">ヒント (ピンクの枠線)</p>
+                  <div class="flex gap-[0.6cqw] flex-wrap">
+                    <label class="flex items-center gap-[0.2cqw] cursor-pointer"><input type="radio" name="q1-hint"
+                        value="1col" class="w-[1.1cqw] h-[1.1cqw] accent-pink-500" checked><span
+                        class="font-bold text-gray-600" style="font-size: 1cqw;">1行</span></label>
+                    <label class="flex items-center gap-[0.2cqw] cursor-pointer"><input type="radio" name="q1-hint"
+                        value="3col" class="w-[1.1cqw] h-[1.1cqw] accent-pink-500"><span class="font-bold text-gray-600"
+                        style="font-size: 1cqw;">3行</span></label>
+                    <label class="flex items-center gap-[0.2cqw] cursor-pointer"><input type="radio" name="q1-hint"
+                        value="1row" class="w-[1.1cqw] h-[1.1cqw] accent-pink-500"><span class="font-bold text-gray-600"
+                        style="font-size: 1cqw;">1段</span></label>
+                    <label class="flex items-center gap-[0.2cqw] cursor-pointer"><input type="radio" name="q1-hint"
+                        value="3row" class="w-[1.1cqw] h-[1.1cqw] accent-pink-500"><span class="font-bold text-gray-600"
+                        style="font-size: 1cqw;">3段</span></label>
+                    <label class="flex items-center gap-[0.2cqw] cursor-pointer"><input type="radio" name="q1-hint"
+                        value="none" class="w-[1.1cqw] h-[1.1cqw] accent-gray-400"><span class="font-bold text-gray-500"
+                        style="font-size: 1cqw;">無</span></label>
+                  </div>
+                </div>
+
+                <div class="flex items-center justify-between border-t-[0.2cqw] border-pink-200 pt-[1cqw] mt-auto">
+                  <span class="font-bold text-gray-800" style="font-size: 1.1cqw;">名前ボタンのロック</span>
+                  <div class="flex gap-[1cqw]">
+                    <label class="flex items-center gap-[0.3cqw] cursor-pointer"><input type="radio" name="q1-lock"
+                        value="true" class="w-[1.2cqw] h-[1.2cqw] accent-blue-500" checked><span
+                        class="font-bold text-gray-600" style="font-size: 1.1cqw;">する</span></label>
+                    <label class="flex items-center gap-[0.3cqw] cursor-pointer"><input type="radio" name="q1-lock"
+                        value="false" class="w-[1.2cqw] h-[1.2cqw] accent-gray-400"><span
+                        class="font-bold text-gray-500" style="font-size: 1.1cqw;">しない</span></label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- もんだい②カラム (エメラルドグリーン) -->
+            <div
+              class="flex-1 bg-teal-50 rounded-[1.5cqw] border-[0.3cqw] border-teal-400 flex flex-col overflow-hidden shadow-sm">
+              <div
+                class="bg-teal-400 text-white font-bold py-[0.8cqw] px-[2cqw] rounded-br-[1.5cqw] inline-block self-start shadow-sm"
+                style="font-size: 1.5cqw;">もんだい②</div>
+              <div class="p-[1cqw] flex flex-col flex-1">
+                <p class="font-bold text-center text-gray-800 mb-[1cqw]" style="font-size: 1.3cqw;">「一つの名前を聞いて答える」</p>
+
+                <div class="flex mb-[1cqw]">
+                  <span class="font-bold text-gray-800 mr-[1cqw]" style="font-size: 1.2cqw;">出題</span>
+                  <div class="flex flex-col gap-[0.5cqw]">
+                    <label class="flex items-center gap-[0.5cqw] cursor-pointer"><input type="radio" name="q2-type"
+                        value="random" class="w-[1.5cqw] h-[1.5cqw] accent-blue-500" checked><span
+                        class="font-bold text-gray-700" style="font-size: 1.2cqw;">無制限・ランダム</span></label>
+                    <label class="flex items-center gap-[0.5cqw] cursor-pointer"><input type="radio" name="q2-type"
+                        value="list-seq" class="w-[1.5cqw] h-[1.5cqw] accent-blue-500"><span
+                        class="font-bold text-gray-700" style="font-size: 1.2cqw;">指定（作成）・順に</span></label>
+                    <label class="flex items-center gap-[0.5cqw] cursor-pointer"><input type="radio" name="q2-type"
+                        value="list-rand" class="w-[1.5cqw] h-[1.5cqw] accent-blue-500"><span
+                        class="font-bold text-gray-700" style="font-size: 1.2cqw;">指定（作成）・ランダム</span></label>
+                  </div>
+                </div>
+
+                <textarea id="q2-list"
+                  class="w-full border-[0.2cqw] border-teal-300 rounded-[0.8cqw] p-[0.8cqw] font-bold text-gray-800 resize-none flex-1 min-h-[8cqh] mb-[1cqw] shadow-inner focus:outline-none focus:border-teal-500"
+                  style="font-size: 1.5cqw;" placeholder="例：あさ、いす、うし"></textarea>
+
+                <div class="border-t-[0.2cqw] border-teal-200 pt-[1cqw] mb-[1cqw]">
+                  <p class="font-bold text-gray-800 mb-[0.5cqw]" style="font-size: 1.1cqw;">1問のやり直し回数上限</p>
+                  <div class="flex gap-[1cqw]">
+                    <label class="flex items-center gap-[0.3cqw] cursor-pointer"><input type="radio" name="q2-retry"
+                        value="3" class="w-[1.2cqw] h-[1.2cqw] accent-blue-500" checked><span
+                        class="font-bold text-gray-600" style="font-size: 1.1cqw;">3回</span></label>
+                    <label class="flex items-center gap-[0.3cqw] cursor-pointer"><input type="radio" name="q2-retry"
+                        value="5" class="w-[1.2cqw] h-[1.2cqw] accent-blue-500"><span class="font-bold text-gray-600"
+                        style="font-size: 1.1cqw;">5回</span></label>
+                    <label class="flex items-center gap-[0.3cqw] cursor-pointer"><input type="radio" name="q2-retry"
+                        value="10" class="w-[1.2cqw] h-[1.2cqw] accent-blue-500"><span class="font-bold text-gray-600"
+                        style="font-size: 1.1cqw;">10回</span></label>
+                    <label class="flex items-center gap-[0.3cqw] cursor-pointer"><input type="radio" name="q2-retry"
+                        value="0" class="w-[1.2cqw] h-[1.2cqw] accent-gray-400"><span class="font-bold text-gray-500"
+                        style="font-size: 1.1cqw;">無</span></label>
+                  </div>
+                </div>
+
+                <!-- ★ 新規: ヒント設定 -->
+                <div class="border-t-[0.2cqw] border-teal-200 pt-[1cqw] mb-[1cqw]">
+                  <p class="font-bold text-gray-800 mb-[0.5cqw]" style="font-size: 1.1cqw;">ヒント (ピンクの枠線)</p>
+                  <div class="flex gap-[0.6cqw] flex-wrap">
+                    <label class="flex items-center gap-[0.2cqw] cursor-pointer"><input type="radio" name="q2-hint"
+                        value="1col" class="w-[1.1cqw] h-[1.1cqw] accent-pink-500" checked><span
+                        class="font-bold text-gray-600" style="font-size: 1cqw;">1行</span></label>
+                    <label class="flex items-center gap-[0.2cqw] cursor-pointer"><input type="radio" name="q2-hint"
+                        value="3col" class="w-[1.1cqw] h-[1.1cqw] accent-pink-500"><span class="font-bold text-gray-600"
+                        style="font-size: 1cqw;">3行</span></label>
+                    <label class="flex items-center gap-[0.2cqw] cursor-pointer"><input type="radio" name="q2-hint"
+                        value="1row" class="w-[1.1cqw] h-[1.1cqw] accent-pink-500"><span class="font-bold text-gray-600"
+                        style="font-size: 1cqw;">1段</span></label>
+                    <label class="flex items-center gap-[0.2cqw] cursor-pointer"><input type="radio" name="q2-hint"
+                        value="3row" class="w-[1.1cqw] h-[1.1cqw] accent-pink-500"><span class="font-bold text-gray-600"
+                        style="font-size: 1cqw;">3段</span></label>
+                    <label class="flex items-center gap-[0.2cqw] cursor-pointer"><input type="radio" name="q2-hint"
+                        value="none" class="w-[1.1cqw] h-[1.1cqw] accent-gray-400"><span class="font-bold text-gray-500"
+                        style="font-size: 1cqw;">無</span></label>
+                  </div>
+                </div>
+
+                <div class="flex items-center justify-between border-t-[0.2cqw] border-teal-200 pt-[1cqw] mt-auto">
+                  <span class="font-bold text-gray-800" style="font-size: 1.1cqw;">文字ボタンのロック</span>
+                  <div class="flex gap-[1cqw]">
+                    <label class="flex items-center gap-[0.3cqw] cursor-pointer"><input type="radio" name="q2-lock"
+                        value="true" class="w-[1.2cqw] h-[1.2cqw] accent-blue-500" checked><span
+                        class="font-bold text-gray-600" style="font-size: 1.1cqw;">する</span></label>
+                    <label class="flex items-center gap-[0.3cqw] cursor-pointer"><input type="radio" name="q2-lock"
+                        value="false" class="w-[1.2cqw] h-[1.2cqw] accent-gray-400"><span
+                        class="font-bold text-gray-500" style="font-size: 1.1cqw;">しない</span></label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- もんだい③カラム (黄色) -->
+            <div
+              class="flex-1 bg-yellow-50 rounded-[1.5cqw] border-[0.3cqw] border-yellow-400 flex flex-col overflow-hidden shadow-sm">
+              <div
+                class="bg-yellow-400 text-yellow-900 font-bold py-[0.8cqw] px-[2cqw] rounded-br-[1.5cqw] inline-block self-start shadow-sm"
+                style="font-size: 1.5cqw;">もんだい③</div>
+              <div class="p-[1cqw] flex flex-col flex-1">
+                <p class="font-bold text-center text-gray-800 mb-[1cqw]" style="font-size: 1.3cqw;">「様々な言葉を聞いて答える」</p>
+
+                <div class="flex mb-[1cqw]">
+                  <span class="font-bold text-gray-800 mr-[1cqw]" style="font-size: 1.2cqw;">出題</span>
+                  <div class="flex flex-col gap-[0.5cqw]">
+                    <label class="flex items-center gap-[0.5cqw] cursor-pointer"><input type="radio" name="q3-type"
+                        value="list-seq" class="w-[1.5cqw] h-[1.5cqw] accent-blue-500" checked><span
+                        class="font-bold text-gray-700" style="font-size: 1.2cqw;">指定（作成）・順に</span></label>
+                    <label class="flex items-center gap-[0.5cqw] cursor-pointer"><input type="radio" name="q3-type"
+                        value="list-rand" class="w-[1.5cqw] h-[1.5cqw] accent-blue-500"><span
+                        class="font-bold text-gray-700" style="font-size: 1.2cqw;">指定（作成）・ランダム</span></label>
+                  </div>
+                </div>
+
+                <textarea id="q3-list"
+                  class="w-full border-[0.2cqw] border-yellow-300 rounded-[0.8cqw] p-[0.8cqw] font-bold text-gray-800 resize-none flex-1 min-h-[8cqh] mb-[0.5cqw] shadow-inner focus:outline-none focus:border-yellow-500"
+                  style="font-size: 1.5cqw;" placeholder="例：あいうえお、つくえ、ぼくは！こーらがすきです"></textarea>
+                <div class="mb-[1cqw] text-yellow-800/80 font-medium leading-tight" style="font-size: 1cqw;">
+                  ※「こんにちは」の「は」などを「わ」と読ませたいときは、<br>後ろに「！」をつけて「こんにちは！」と入力してください。<br>「へ！」も同様に使えます。
+                </div>
+
+                <div class="border-t-[0.2cqw] border-yellow-300 pt-[1cqw] mt-auto mb-[1cqw]">
+                  <p class="font-bold text-gray-800 mb-[0.5cqw]" style="font-size: 1.1cqw;">1問のやり直し回数上限</p>
+                  <div class="flex gap-[1cqw]">
+                    <label class="flex items-center gap-[0.3cqw] cursor-pointer"><input type="radio" name="q3-retry"
+                        value="3" class="w-[1.2cqw] h-[1.2cqw] accent-blue-500" checked><span
+                        class="font-bold text-gray-600" style="font-size: 1.1cqw;">3回</span></label>
+                    <label class="flex items-center gap-[0.3cqw] cursor-pointer"><input type="radio" name="q3-retry"
+                        value="5" class="w-[1.2cqw] h-[1.2cqw] accent-blue-500"><span class="font-bold text-gray-600"
+                        style="font-size: 1.1cqw;">5回</span></label>
+                    <label class="flex items-center gap-[0.3cqw] cursor-pointer"><input type="radio" name="q3-retry"
+                        value="10" class="w-[1.2cqw] h-[1.2cqw] accent-blue-500"><span class="font-bold text-gray-600"
+                        style="font-size: 1.1cqw;">10回</span></label>
+                    <label class="flex items-center gap-[0.3cqw] cursor-pointer"><input type="radio" name="q3-retry"
+                        value="0" class="w-[1.2cqw] h-[1.2cqw] accent-gray-400"><span class="font-bold text-gray-500"
+                        style="font-size: 1.1cqw;">無</span></label>
+                  </div>
+                </div>
+
+                <!-- ★ 新規: ヒント設定 -->
+                <div class="border-t-[0.2cqw] border-yellow-300 pt-[1cqw]">
+                  <p class="font-bold text-gray-800 mb-[0.5cqw]" style="font-size: 1.1cqw;">ヒント (ピンクの枠線)</p>
+                  <div class="flex gap-[0.6cqw] flex-wrap">
+                    <label class="flex items-center gap-[0.2cqw] cursor-pointer"><input type="radio" name="q3-hint"
+                        value="1col" class="w-[1.1cqw] h-[1.1cqw] accent-pink-500" checked><span
+                        class="font-bold text-gray-600" style="font-size: 1cqw;">1行</span></label>
+                    <label class="flex items-center gap-[0.2cqw] cursor-pointer"><input type="radio" name="q3-hint"
+                        value="3col" class="w-[1.1cqw] h-[1.1cqw] accent-pink-500"><span class="font-bold text-gray-600"
+                        style="font-size: 1cqw;">3行</span></label>
+                    <label class="flex items-center gap-[0.2cqw] cursor-pointer"><input type="radio" name="q3-hint"
+                        value="1row" class="w-[1.1cqw] h-[1.1cqw] accent-pink-500"><span class="font-bold text-gray-600"
+                        style="font-size: 1cqw;">1段</span></label>
+                    <label class="flex items-center gap-[0.2cqw] cursor-pointer"><input type="radio" name="q3-hint"
+                        value="3row" class="w-[1.1cqw] h-[1.1cqw] accent-pink-500"><span class="font-bold text-gray-600"
+                        style="font-size: 1cqw;">3段</span></label>
+                    <label class="flex items-center gap-[0.2cqw] cursor-pointer"><input type="radio" name="q3-hint"
+                        value="none" class="w-[1.1cqw] h-[1.1cqw] accent-gray-400"><span class="font-bold text-gray-500"
+                        style="font-size: 1cqw;">無</span></label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- 下部の共通設定 -->
+          <div
+            class="bg-yellow-200 rounded-full py-[1cqw] px-[4cqw] flex items-center justify-center gap-[2cqw] self-center shadow-sm border-[0.2cqw] border-yellow-400">
+            <span class="font-bold text-gray-800" style="font-size: 1.5cqw;">問題タブの表示</span>
+            <div class="flex gap-[1.5cqw]">
+              <label class="flex items-center gap-[0.5cqw] cursor-pointer"><input type="radio" name="show-tabs"
+                  value="true" class="w-[1.5cqw] h-[1.5cqw] accent-blue-500" checked><span
+                  class="font-bold text-gray-800" style="font-size: 1.4cqw;">する</span></label>
+              <label class="flex items-center gap-[0.5cqw] cursor-pointer"><input type="radio" name="show-tabs"
+                  value="false" class="w-[1.5cqw] h-[1.5cqw] accent-gray-400"><span class="font-bold text-gray-500"
+                  style="font-size: 1.4cqw;">しない</span></label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 復元確認ポップアップ -->
+      <div id="restore-confirm-modal" class="absolute inset-0 bg-black/60 hidden items-center justify-center z-[250]">
+        <div
+          class="bg-white rounded-[2cqw] p-[3cqw] shadow-2xl text-center flex flex-col items-center border-[0.4cqw] border-purple-300"
+          style="width: 65cqw;">
+          <p class="font-bold text-[#1f2937] mb-[2cqw]" style="font-size: 3cqw;">バックアップを読み込みますか？</p>
+          <p class="text-red-500 font-bold mb-[4cqw]" style="font-size: 1.8cqw;">
+            ※いま端末に入っている録音データはすべて消え、<br>バックアップのデータで上書きされます。</p>
+          <div class="flex justify-center gap-[2cqw] w-full">
+            <button id="modal-btn-restore-cancel"
+              class="bg-gray-300 hover:bg-gray-400 active:translate-y-[0.2cqw] transition-transform text-gray-800 font-bold rounded-[1cqw] border-b-[0.4cqw] border-gray-500"
+              style="flex: 1; padding: 1.5cqw; font-size: 2.5cqw;">やめる</button>
+            <button id="modal-btn-restore-execute"
+              class="bg-purple-500 hover:bg-purple-600 active:translate-y-[0.2cqw] transition-transform text-white font-bold rounded-[1cqw] border-b-[0.4cqw] border-purple-700"
+              style="flex: 1; padding: 1.5cqw; font-size: 2.5cqw;">よみこむ</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- メッセージ通知ポップアップ -->
+      <div id="message-modal" class="absolute inset-0 bg-black/60 hidden items-center justify-center z-[300]">
+        <div
+          class="bg-white rounded-[2cqw] p-[3cqw] shadow-2xl text-center flex flex-col items-center border-[0.4cqw] border-blue-300"
+          style="width: 50cqw;">
+          <p id="message-modal-text" class="font-bold text-[#1f2937] mb-[4cqw] leading-relaxed"
+            style="font-size: 2.2cqw;">メッセージ</p>
+          <button id="modal-btn-message-ok"
+            class="bg-blue-500 hover:bg-blue-600 active:translate-y-[0.2cqw] transition-transform text-white font-bold rounded-[1cqw] border-b-[0.4cqw] border-blue-700 w-1/2"
+            style="padding: 1.5cqw; font-size: 2.5cqw;">OK</button>
+        </div>
+      </div>
+
+      <!-- ★ スタンプ帳モーダル -->
+      <div id="stamp-book-modal" class="absolute inset-0 bg-black/60 hidden items-center justify-center z-[200]"
+        style="touch-action: none;">
+        <div
+          class="bg-orange-50 rounded-[2vmin] p-[3vmin] shadow-2xl flex flex-col relative border-[0.4vmin] border-orange-400 overflow-hidden"
+          style="width: 90vmin; max-height: 90vmin;">
+          <button id="btn-stamp-book-close"
+            class="absolute top-[1vmin] right-[1.5vmin] text-orange-600 hover:text-orange-900 hover:scale-110 active:scale-95 transition-transform font-bold z-10 text-[4vmin]"
+            style="line-height: 1;">×</button>
+
+          <h2 class="font-black text-center text-orange-600 mb-[2vmin] text-[4vmin]"
+            style="text-shadow: 0 0.3vmin 0 #fff;">📔 スタンプちょう</h2>
+
+          <div class="flex justify-between items-end mb-[1.5vmin] px-[1vmin]">
+            <span class="font-bold text-orange-800 text-[2vmin]">あつめたスタンプ: <span id="stamp-count-display"
+                class="text-[3vmin] text-orange-600">0</span> <span class="text-[1.5vmin]">/ <span
+                  id="stamp-total-display">112</span></span></span>
+            <span class="font-bold text-gray-500 text-[1.4vmin]">※50もん せいかいすると 1つもらえるよ！</span>
+          </div>
+
+          <div id="stamp-grid"
+            class="flex-1 overflow-y-auto bg-white rounded-[1vmin] border-[0.2vmin] border-orange-200 p-[1.5vmin] grid grid-cols-10 gap-[1vmin]"
+            style="align-content: start;">
+            <!-- JSで動的に追加されます -->
+          </div>
+        </div>
+      </div>
+
+      <!-- 処理中オーバーレイ -->
+      <div id="processing-overlay"
+        class="absolute inset-0 bg-black/70 hidden flex-col items-center justify-center z-[1000]">
+        <div class="animate-spin rounded-full border-[1.5cqw] border-white border-t-blue-500 mb-[2cqh]"
+          style="width: 8cqw; height: 8cqw;"></div>
+        <div id="processing-text" class="text-white font-bold text-[2cqw] drop-shadow-md text-center leading-relaxed">
+          処理しています...</div>
+      </div>
+
+      <!-- ★ 波形トリミングポップアップ -->
+      <div id="trim-modal"
+        class="absolute inset-0 bg-black/80 hidden items-center justify-center z-[350] flex-col p-[2cqw]">
+        <div
+          class="bg-white rounded-[1.5cqw] w-[90cqw] max-w-[800px] p-[2cqw] flex flex-col gap-[1.5cqw] relative border-[0.3cqw] border-gray-300 shadow-2xl">
+          <h2 class="text-center font-bold text-[2.5cqw] text-gray-800">✂️ 波形の調整</h2>
+          <button id="btn-trim-close"
+            class="absolute top-[1cqw] right-[1.5cqw] text-gray-500 hover:text-gray-800 transition-transform active:scale-95"
+            style="font-size: 3cqw; line-height: 1;">×</button>
+
+          <!-- 波形エリア -->
+          <div
+            class="relative w-full h-[20cqh] bg-gray-100 border-2 border-gray-300 rounded-lg overflow-hidden trim-allow-drag"
+            id="trim-waveform-container" style="touch-action: none;">
+            <canvas id="trim-canvas" class="w-full h-full pointer-events-none"></canvas>
+
+            <!-- 再生位置ロケーター (動く縦線) -->
+            <div id="trim-play-locator"
+              class="absolute top-0 bottom-0 w-[0.3cqw] bg-yellow-400 z-20 pointer-events-none hidden"
+              style="box-shadow: 0 0 0.5cqw rgba(250, 204, 21, 0.8);"></div>
+
+            <!-- ★ 修正: Startマーカー (青) をハンドル付きデザインに変更 -->
+            <div id="trim-marker-start"
+              class="absolute top-0 bottom-0 w-[4cqw] cursor-ew-resize flex justify-center -translate-x-[2cqw] trim-allow-drag z-10 group"
+              style="touch-action: none;">
+              <!-- 実際の線 -->
+              <div
+                class="w-[0.4cqw] h-full bg-blue-500 group-hover:bg-blue-400 transition-colors relative flex items-center justify-center pointer-events-none">
+                <!-- 掴みやすいハンドル -->
+                <div
+                  class="w-[3.5cqw] h-[6cqh] bg-blue-500 rounded-full shadow-lg border-[0.3cqw] border-white flex items-center justify-center absolute mt-[8cqh]">
+                  <!-- ハンドル内の滑り止め模様 -->
+                  <div class="w-[0.4cqw] h-[3cqh] bg-blue-300 rounded-full mx-[0.2cqw]"></div>
+                  <div class="w-[0.4cqw] h-[3cqh] bg-blue-300 rounded-full mx-[0.2cqw]"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ★ 修正: Endマーカー (赤) をハンドル付きデザインに変更 -->
+            <div id="trim-marker-end"
+              class="absolute top-0 bottom-0 w-[4cqw] cursor-ew-resize flex justify-center -translate-x-[2cqw] trim-allow-drag z-10 group"
+              style="touch-action: none;">
+              <!-- 実際の線 -->
+              <div
+                class="w-[0.4cqw] h-full bg-red-500 group-hover:bg-red-400 transition-colors relative flex items-center justify-center pointer-events-none">
+                <!-- 掴みやすいハンドル -->
+                <div
+                  class="w-[3.5cqw] h-[6cqh] bg-red-500 rounded-full shadow-lg border-[0.3cqw] border-white flex items-center justify-center absolute mt-[8cqh]">
+                  <!-- ハンドル内の滑り止め模様 -->
+                  <div class="w-[0.4cqw] h-[3cqh] bg-red-300 rounded-full mx-[0.2cqw]"></div>
+                  <div class="w-[0.4cqw] h-[3cqh] bg-red-300 rounded-full mx-[0.2cqw]"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 非選択範囲のオーバーレイ -->
+            <div id="trim-overlay-left" class="absolute top-0 bottom-0 left-0 bg-gray-800/40 pointer-events-none"></div>
+            <div id="trim-overlay-right" class="absolute top-0 bottom-0 right-0 bg-gray-800/40 pointer-events-none">
+            </div>
+          </div>
+
+          <!-- コントロールエリア -->
+          <div class="flex justify-between items-center gap-[2cqw]">
+            <!-- Startコントロール -->
+            <div
+              class="flex flex-col items-center flex-1 bg-blue-50 p-[1cqw] rounded-lg border border-blue-200 shadow-inner">
+              <span class="text-blue-700 font-bold text-[1.4cqw] mb-[0.5cqw]">再生スタート位置</span>
+              <div class="flex items-center gap-[1cqw]">
+                <button id="btn-trim-start-minus"
+                  class="bg-white border-[0.2cqw] border-blue-300 rounded-[0.5cqw] px-[1cqw] py-[0.5cqw] font-bold text-blue-600 active:scale-95 shadow-sm text-[1.5cqw]">◀</button>
+                <span id="trim-start-time"
+                  class="font-mono font-bold text-[2cqw] w-[7cqw] text-center text-blue-900">0.00</span>
+                <button id="btn-trim-start-plus"
+                  class="bg-white border-[0.2cqw] border-blue-300 rounded-[0.5cqw] px-[1cqw] py-[0.5cqw] font-bold text-blue-600 active:scale-95 shadow-sm text-[1.5cqw]">▶</button>
+              </div>
+            </div>
+
+            <!-- 音量コントロール -->
+            <div
+              class="flex flex-col items-center flex-1 bg-green-50 p-[1cqw] rounded-lg border border-green-200 shadow-inner">
+              <span class="text-green-700 font-bold text-[1.4cqw] mb-[0.5cqw]">波形の大きさ(音量)</span>
+              <div class="flex items-center gap-[1cqw]">
+                <button id="btn-trim-vol-down"
+                  class="bg-white border-[0.2cqw] border-green-300 rounded-[0.5cqw] px-[1cqw] py-[0.5cqw] font-bold text-green-600 active:scale-95 shadow-sm text-[1.5cqw]">小さく</button>
+                <button id="btn-trim-vol-up"
+                  class="bg-white border-[0.2cqw] border-green-300 rounded-[0.5cqw] px-[1cqw] py-[0.5cqw] font-bold text-green-600 active:scale-95 shadow-sm text-[1.5cqw]">大きく</button>
+              </div>
+            </div>
+
+            <!-- Endコントロール -->
+            <div
+              class="flex flex-col items-center flex-1 bg-red-50 p-[1cqw] rounded-lg border border-red-200 shadow-inner">
+              <span class="text-red-700 font-bold text-[1.4cqw] mb-[0.5cqw]">再生ストップ位置</span>
+              <div class="flex items-center gap-[1cqw]">
+                <button id="btn-trim-end-minus"
+                  class="bg-white border-[0.2cqw] border-red-300 rounded-[0.5cqw] px-[1cqw] py-[0.5cqw] font-bold text-red-600 active:scale-95 shadow-sm text-[1.5cqw]">◀</button>
+                <span id="trim-end-time"
+                  class="font-mono font-bold text-[2cqw] w-[7cqw] text-center text-red-900">1.00</span>
+                <button id="btn-trim-end-plus"
+                  class="bg-white border-[0.2cqw] border-red-300 rounded-[0.5cqw] px-[1cqw] py-[0.5cqw] font-bold text-red-600 active:scale-95 shadow-sm text-[1.5cqw]">▶</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- アクションボタン -->
+          <div class="flex justify-center gap-[2cqw] mt-[0.5cqw]">
+            <button id="btn-trim-play"
+              class="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-[1cqw] py-[1.2cqw] text-[1.8cqw] active:scale-95 shadow-md border-b-[0.3cqw] border-blue-700 flex justify-center items-center gap-[0.5cqw]">
+              ▶ 試し聞き
+            </button>
+            <button id="btn-trim-save"
+              class="flex-[1.2] bg-purple-500 hover:bg-purple-600 text-white font-bold rounded-[1cqw] py-[1.2cqw] text-[1.8cqw] active:scale-95 shadow-md border-b-[0.3cqw] border-purple-700 flex justify-center items-center gap-[0.5cqw]">
+              💾 この範囲で保存
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="hiragana_data.js?v=2"></script>
+  <script src="canvas_engine.js?v=2"></script>
+  <script src="app.js?v=2"></script>
+</body>
+
+</html>
